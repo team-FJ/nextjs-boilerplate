@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# INVADER ASSAULT
 
-## Getting Started
+Next.js + Canvas 2D で作ったブラウザ用インベーダーゲーム。外部アセット・外部ライブラリなし（ドット絵はコード内の文字列、効果音と BGM は WebAudio で生成）。
 
-First, run the development server:
+## 起動
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+[http://localhost:3000](http://localhost:3000) を開くとタイトル画面が表示されます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 操作
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| 操作 | キー |
+| --- | --- |
+| 移動 | ← → ↑ ↓ / WASD |
+| ショット | SPACE / Z（オートファイア既定 ON） |
+| ボム（全画面攻撃） | X / SHIFT |
+| ポーズ | ESC / P |
 
-## Learn More
+スマートフォンでは画面下の仮想パッド、オプションで「マウス操作」を選ぶとポインタ追従で操作できます。
 
-To learn more about Next.js, take a look at the following resources:
+## 収録内容
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **ステージ 30 種** — 8 種のテーマ（深宇宙・星雲・氷晶・溶融・汚染・虚無・恒星圏・電脳）、編隊形状 10 種、ステージ固有ギミック（メテオ／デブリ／レーザーグリッド／恒星風／視界不良）
+- **敵 13 種** — 突撃するカミカゼ、分裂するスプリッタ、仲間を回復するヒーラー、透過するゴーストなど
+- **ボス 6 体** — 破壊可能パーツ・HP に応じたフェーズ変化・10 種の攻撃パターン（5・10・15・20・25・30 面）
+- **武装 6 種 × パワーレベル 5** — バルカン／スプレッド／レーザー／ミサイル／ウェーブ／レールガン
+- **アイテム 18 種** — パワーアップ、オプション（随伴ポッド最大 4 基）、バリア、スピード、ラピッド、ボム、1UP、スコア 2 倍、スロー、マグネット、フリーズ、ピアース、リペア ほか
+- **オプション設定** — 難易度 4 段階、操作方法、オートファイア、随伴ポッドの配置（追従／左右／回転）、画面揺れ、エフェクト量、CRT スキャンライン、スターフィールド、色覚サポート、FPS 表示、SE/BGM 音量、進行状況リセット
+- **スコアと記録** — コンボ倍率、被弾なし・命中率・残機ボーナス、10 万点ごとの 1UP、ステージ別ハイスコアと解放状況を localStorage に保存
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 構成
 
-## Deploy on Vercel
+```
+app/page.tsx                    エントリ（クライアント専用でゲームを読み込む）
+components/game/InvaderGame.tsx キャンバス・メインループ・画面遷移
+components/game/Hud.tsx         プレイ中の HUD
+components/game/Menus.tsx       タイトル／ステージ選択／オプション／リザルト
+lib/game/engine.ts              ゲームロジック（更新・当たり判定・進行管理）
+lib/game/render.ts              Canvas 描画
+lib/game/stages.ts              全 30 ステージ定義
+lib/game/enemies.ts             敵・ボスのパラメータとドット絵
+lib/game/formations.ts          編隊形状の生成
+lib/game/constants.ts           画面サイズ・難易度・テーマ・アイテム定義
+lib/game/audio.ts               WebAudio による効果音・BGM 生成
+lib/game/input.ts               キーボード／ポインタ入力
+lib/game/storage.ts             設定・進行状況の永続化
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ゲームロジック（`lib/game/engine.ts`）は描画・React から独立しているため、Node 上で固定タイムステップを回して挙動を検証できます。
