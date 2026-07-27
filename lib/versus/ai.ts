@@ -1,4 +1,4 @@
-import { clamp, rand } from "../game/rng";
+import { clamp, createRng, type Rng } from "../game/rng";
 import { CPU_PROFILES, VERSUS_WEAPONS } from "./constants";
 import type { VersusEngine } from "./engine";
 import type { CpuLevel, Fighter, FighterInput, PlayerId } from "./types";
@@ -17,11 +17,20 @@ export class VersusAi {
   private wantBomb = false;
   private jitter = 0;
 
+  private rng: Rng;
+  private rand: (min: number, max: number) => number;
+  private random: () => number;
+
   constructor(
     private readonly id: PlayerId,
     level: CpuLevel,
+    /** 指定すると思考が再現可能になる（検証用） */
+    seed?: number,
   ) {
     this.level = level;
+    this.rng = createRng(seed ?? Math.floor(Math.random() * 0xffffffff));
+    this.rand = (min, max) => min + this.rng.next() * (max - min);
+    this.random = () => this.rng.next();
   }
 
   setLevel(level: CpuLevel) {
@@ -35,7 +44,7 @@ export class VersusAi {
 
     this.think -= dt;
     if (this.think <= 0) {
-      this.think = profile.reaction * rand(0.8, 1.25);
+      this.think = profile.reaction * this.rand(0.8, 1.25);
       this.decide(engine, me, foe);
     }
 
@@ -56,7 +65,7 @@ export class VersusAi {
 
   private decide(engine: VersusEngine, me: Fighter, foe: Fighter) {
     const profile = CPU_PROFILES[this.level];
-    this.jitter = rand(-profile.aimError, profile.aimError);
+    this.jitter = this.rand(-profile.aimError, profile.aimError);
     this.wantBomb = false;
 
     // 1) 回避：自分に向かってくる弾を探す
@@ -77,7 +86,7 @@ export class VersusAi {
       .filter((i) => i.owner === me.id)
       .map((i) => ({ i, d: Math.hypot(i.x - me.x, i.y - me.y) }))
       .sort((a, b) => a.d - b.d)[0];
-    if (item && Math.random() < profile.greed) {
+    if (item && this.random() < profile.greed) {
       this.targetX = item.i.x;
       this.targetY = clamp(item.i.y, me.zoneTop + 16, me.zoneBottom - 16);
       this.wantFire = me.energy > me.maxEnergy * 0.8;
@@ -103,10 +112,10 @@ export class VersusAi {
     const spec = VERSUS_WEAPONS[me.weapon];
     const aligned = Math.abs(this.targetX - me.x) < 22;
     const hasEnergy = me.energy > Math.max(spec.cost, profile.energyFloor);
-    this.wantFire = aligned && hasEnergy && Math.random() > profile.hesitation;
+    this.wantFire = aligned && hasEnergy && this.random() > profile.hesitation;
 
     // ボムは相手に正対しているときだけ使う
-    if (me.bombs > 0 && Math.abs(foe.x - me.x) < 20 && Math.random() < 0.5) {
+    if (me.bombs > 0 && Math.abs(foe.x - me.x) < 20 && this.random() < 0.5) {
       this.wantBomb = true;
     }
   }

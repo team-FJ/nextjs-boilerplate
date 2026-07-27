@@ -1,5 +1,5 @@
-import type { AudioEngine } from "../game/audio";
-import { clamp, rand } from "../game/rng";
+import type { GameAudio } from "../game/audio";
+import { clamp, createRng, type Rng } from "../game/rng";
 import type { Settings } from "../game/types";
 import {
   BAND,
@@ -64,7 +64,7 @@ const ITEM_KEYS = Object.keys(VERSUS_ITEMS) as VersusItemKind[];
 
 export class VersusEngine {
   settings: Settings;
-  audio: AudioEngine;
+  audio: GameAudio;
   config: VersusConfig;
   callbacks: VersusCallbacks = {};
 
@@ -88,13 +88,20 @@ export class VersusEngine {
   flashColor = "#ffffff";
   fps = 60;
 
+  /** 試合のシード。同じシードと同じ入力列なら同じ試合が再現される */
+  seed = 1;
+  private rng: Rng = createRng(1);
+  /** 0-1 の乱数（this を固定するためアロー関数で持つ） */
+  private rnd = () => this.rng.next();
+  private rand = (min: number, max: number) => min + this.rng.next() * (max - min);
+
   private idCounter = 1;
   private spawnTimer = 2;
   private elapsed = 0;
   private fpsAccum = 0;
   private fpsFrames = 0;
 
-  constructor(settings: Settings, audio: AudioEngine, config: VersusConfig) {
+  constructor(settings: Settings, audio: GameAudio, config: VersusConfig) {
     this.settings = settings;
     this.audio = audio;
     this.config = config;
@@ -162,8 +169,9 @@ export class VersusEngine {
 
   // ---------------------------------------------------------------- 進行
 
-  startMatch(config: VersusConfig) {
+  startMatch(config: VersusConfig, seed = Math.floor(Math.random() * 0xffffffff)) {
     this.config = config;
+    this.seed = seed >>> 0;
     this.fighters = [this.createFighter(1), this.createFighter(2)];
     this.round = 1;
     this.matchWinner = null;
@@ -172,6 +180,8 @@ export class VersusEngine {
   }
 
   startRound() {
+    // ラウンドごとに決まった種から乱数を作り直す（同じシードなら同じ展開になる）
+    this.rng = createRng((this.seed + this.round * 7919) >>> 0);
     // 強化状態はラウンドごとにリセットして毎回フラットな撃ち合いから始める
     for (const f of this.fighters) {
       const wins = f.wins;
@@ -347,6 +357,7 @@ export class VersusEngine {
     for (const s of pattern) {
       const angle = s.angle;
       this.bullets.push({
+        id: this.idCounter++,
         x: f.x + s.ox,
         y: f.y + f.dir * 14,
         vx: Math.sin(angle) * spec.speed,
@@ -371,6 +382,7 @@ export class VersusEngine {
     f.bombs -= 1;
     f.fireCooldown = 0.7;
     this.bullets.push({
+      id: this.idCounter++,
       x: f.x,
       y: f.y + f.dir * 16,
       vx: 0,
@@ -454,7 +466,7 @@ export class VersusEngine {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       const ramp = Math.max(0.45, 1 - this.elapsed * density.ramp);
-      this.spawnTimer = rand(density.min, density.max) * ramp;
+      this.spawnTimer = this.rand(density.min, density.max) * ramp;
       this.spawnEnemy();
     }
 
@@ -468,7 +480,7 @@ export class VersusEngine {
       if (def.fireInterval > 0) {
         e.fireCooldown -= dt;
         if (e.fireCooldown <= 0) {
-          e.fireCooldown = def.fireInterval * rand(0.75, 1.35);
+          e.fireCooldown = def.fireInterval * this.rand(0.75, 1.35);
           this.enemyShoot(e);
         }
       }
@@ -477,24 +489,24 @@ export class VersusEngine {
   }
 
   private spawnEnemy() {
-    const type = pickEnemyType(this.elapsed, Math.random);
+    const type = pickEnemyType(this.elapsed, this.rnd);
     const def = BAND_ENEMIES[type];
-    const fromLeft = Math.random() < 0.5;
+    const fromLeft = this.rnd() < 0.5;
     const margin = 26;
-    const y = rand(BAND.top + margin, BAND.bottom - margin);
+    const y = this.rand(BAND.top + margin, BAND.bottom - margin);
     this.enemies.push({
       id: this.idCounter++,
       type,
       x: fromLeft ? -30 : V_W + 30,
       y,
-      vx: (fromLeft ? 1 : -1) * def.speed * rand(0.85, 1.15),
+      vx: (fromLeft ? 1 : -1) * def.speed * this.rand(0.85, 1.15),
       baseY: y,
       w: def.w,
       h: def.h,
       hp: def.hp,
       maxHp: def.hp,
-      t: Math.random() * 6,
-      fireCooldown: rand(0.6, def.fireInterval || 2),
+      t: this.rnd() * 6,
+      fireCooldown: this.rand(0.6, def.fireInterval || 2),
       hitFlash: 0,
       lastHitBy: null,
     });
@@ -505,6 +517,7 @@ export class VersusEngine {
     const speed = def.attack === "bombBoth" ? 120 : 175;
     const push = (vx: number, vy: number, size: number, color: string) => {
       this.bullets.push({
+        id: this.idCounter++,
         x: e.x,
         y: e.y + Math.sign(vy) * 12,
         vx,
@@ -526,8 +539,8 @@ export class VersusEngine {
         push(0, -speed, 7, "#ff6b6b");
         break;
       case "bombBoth":
-        push(rand(-25, 25), speed, 12, "#c58dff");
-        push(rand(-25, 25), -speed, 12, "#c58dff");
+        push(this.rand(-25, 25), speed, 12, "#c58dff");
+        push(this.rand(-25, 25), -speed, 12, "#c58dff");
         break;
       case "nearest": {
         // 近い方のプレイヤーを狙う
@@ -552,7 +565,7 @@ export class VersusEngine {
     if (e.hp <= 0) {
       const def = BAND_ENEMIES[e.type];
       this.spawnParticles(e.x, e.y, def.hp > 5 ? 22 : 12, def.color, "spark");
-      this.audio.play("explode", rand(0.9, 1.2), 25);
+      this.audio.play("explode", this.rand(0.9, 1.2), 25);
       this.fighters[by - 1].kills += 1;
       this.dropItem(e, by);
     }
@@ -569,8 +582,8 @@ export class VersusEngine {
       owner,
       x: e.x,
       y: e.y,
-      vx: rand(-18, 18),
-      vy: dir * rand(130, 170),
+      vx: this.rand(-18, 18),
+      vy: dir * this.rand(130, 170),
       life: 9,
     });
     const label = VERSUS_ITEMS[kind];
@@ -583,7 +596,7 @@ export class VersusEngine {
       return item.rare ? item.weight * (0.35 + rareBias) : item.weight;
     });
     const total = weights.reduce((s, w) => s + w, 0);
-    let roll = Math.random() * total;
+    let roll = this.rnd() * total;
     for (let i = 0; i < ITEM_KEYS.length; i++) {
       roll -= weights[i];
       if (roll <= 0) return ITEM_KEYS[i];
@@ -767,9 +780,9 @@ export class VersusEngine {
     const n = Math.max(1, Math.round(count * scale));
     if (this.particles.length > 700) return;
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const sp = kind === "ring" ? rand(40, 110) : rand(40, 210);
-      const life = rand(0.25, 0.7);
+      const a = this.rnd() * Math.PI * 2;
+      const sp = kind === "ring" ? this.rand(40, 110) : this.rand(40, 210);
+      const life = this.rand(0.25, 0.7);
       this.particles.push({
         x,
         y,
@@ -777,7 +790,7 @@ export class VersusEngine {
         vy: Math.sin(a) * sp,
         life,
         maxLife: life,
-        size: rand(1.4, 3.2),
+        size: this.rand(1.4, 3.2),
         color,
         kind,
       });

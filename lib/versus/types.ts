@@ -94,6 +94,8 @@ export interface Fighter {
 }
 
 export interface VersusBullet {
+  /** クライアント側の補間で同じ弾を追跡するための ID */
+  id: number;
   x: number;
   y: number;
   vx: number;

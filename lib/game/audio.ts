@@ -55,6 +55,29 @@ const SFX: Record<SfxName, SfxDef> = {
   extend: { type: "sine", from: 880, to: 2640, dur: 0.5, gain: 0.22 },
 };
 
+/**
+ * 効果音の出力先。ブラウザでは AudioEngine、サーバー側（通信対戦の権威計算）では
+ * SilentAudio を差し込むことで、同じゲームエンジンを音無しで動かせる。
+ */
+export interface GameAudio {
+  init(): void;
+  setVolumes(sfx: number, bgm: number): void;
+  play(name: SfxName, pitchShift?: number, throttleMs?: number): void;
+  startBgm(seed: number, tempoMs?: number): void;
+  stopBgm(): void;
+  dispose(): void;
+}
+
+/** 何も鳴らさない実装（サーバー・テスト用） */
+export class SilentAudio implements GameAudio {
+  init() {}
+  setVolumes() {}
+  play() {}
+  startBgm() {}
+  stopBgm() {}
+  dispose() {}
+}
+
 /** ステージテーマごとの簡易 BGM（ベースライン + アルペジオ） */
 const SCALES: number[][] = [
   [0, 3, 5, 7, 10], // minor pentatonic
@@ -63,7 +86,7 @@ const SCALES: number[][] = [
   [0, 1, 5, 7, 8], // phrygian-ish
 ];
 
-export class AudioEngine {
+export class AudioEngine implements GameAudio {
   private ctx: AudioContext | null = null;
   private masterSfx: GainNode | null = null;
   private masterBgm: GainNode | null = null;
