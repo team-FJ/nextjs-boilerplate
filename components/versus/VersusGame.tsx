@@ -13,6 +13,7 @@ import { VersusInput } from "@/lib/versus/input";
 import { VersusRenderer } from "@/lib/versus/render";
 import { EMPTY_INPUT, type VersusConfig, type VersusHudSnapshot, type VersusPhase } from "@/lib/versus/types";
 
+import { TouchPad } from "./TouchPad";
 import { VersusHud } from "./VersusHud";
 import { RoundBreak, VersusHowTo, VersusMenu, VersusPause, VersusResult } from "./VersusMenus";
 import { VersusTouchControls } from "./VersusTouchControls";
@@ -145,13 +146,12 @@ export default function VersusGame() {
   }, [audio, engine]);
 
   const inMatch = phase !== "menu";
-  const touchPlayers = config.mode === "local" ? ([1, 2] as const) : ([1] as const);
 
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#05060c] py-4">
       <div
-        className="relative w-full max-w-[480px] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(255,110,160,0.12)]"
-        style={{ aspectRatio: `${V_W} / ${V_H}`, maxHeight: "calc(100dvh - 2rem)" }}
+        className="relative w-full max-w-[480px] max-h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(255,110,160,0.12)] sm:max-h-[calc(100dvh-2rem)]"
+        style={{ aspectRatio: `${V_W} / ${V_H}` }}
       >
         <canvas ref={canvasRef} className="block h-full w-full touch-none bg-black" />
 
@@ -193,7 +193,16 @@ export default function VersusGame() {
         ) : null}
       </div>
 
-      <VersusTouchControls input={input} players={[...touchPlayers]} />
+      {config.mode === "local" ? (
+        // 1台を2人で使う場合は、上下それぞれにパッドを出す
+        <VersusTouchControls input={input} players={[1, 2]} />
+      ) : (
+        <TouchPad
+          input={input}
+          energyRatio={hud ? hud.fighters[0].energy / hud.fighters[0].maxEnergy : 1}
+          bombs={hud?.fighters[0].bombs ?? 0}
+        />
+      )}
 
       <p className="mt-2 px-4 text-center font-mono text-[10px] text-white/35">
         P1: ← → ↑ ↓{config.mode === "cpu" && " / WASD"} ・ SPACE ショット ・ 右SHIFT ボム

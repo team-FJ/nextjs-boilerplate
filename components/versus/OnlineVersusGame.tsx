@@ -15,8 +15,8 @@ import { VersusRenderer } from "@/lib/versus/render";
 import { VersusInput } from "@/lib/versus/input";
 import type { PlayerId, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
 
+import { TouchPad } from "./TouchPad";
 import { VersusHud } from "./VersusHud";
-import { VersusTouchControls } from "./VersusTouchControls";
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -59,6 +59,7 @@ const STATE_LABEL: Record<ConnectionState, string> = {
 
 export default function OnlineVersusGame() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const clientRef = useRef<NetClient | null>(null);
   const socketRef = useRef<VersusSocket | null>(null);
   const input = getInput();
@@ -220,6 +221,13 @@ export default function OnlineVersusGame() {
     };
   }, [started]);
 
+  const toggleFullscreen = useCallback(() => {
+    const element = stageRef.current;
+    if (!element) return;
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void element.requestFullscreen?.().catch(() => undefined);
+  }, []);
+
   const handleReady = useCallback(() => {
     setReady(true);
     clientRef.current?.setReady(true);
@@ -239,8 +247,9 @@ export default function OnlineVersusGame() {
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#05060c] py-4">
       <div
-        className="relative w-full max-w-[480px] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(90,169,255,0.15)]"
-        style={{ aspectRatio: `${V_W} / ${V_H}`, maxHeight: "calc(100dvh - 2rem)" }}
+        ref={stageRef}
+        className="relative w-full max-w-[480px] max-h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(90,169,255,0.15)] sm:max-h-[calc(100dvh-2rem)]"
+        style={{ aspectRatio: `${V_W} / ${V_H}` }}
       >
         <canvas ref={canvasRef} className="block h-full w-full touch-none bg-black" />
 
@@ -248,7 +257,7 @@ export default function OnlineVersusGame() {
 
         {/* 通信状態 */}
         {started && (
-          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-mono text-[9px] text-white/35">
+          <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[9px] text-white/35">
             {connection === "open" ? `${rtt}ms` : STATE_LABEL[connection]}
           </div>
         )}
@@ -396,7 +405,14 @@ export default function OnlineVersusGame() {
         )}
       </div>
 
-      {started && <VersusTouchControls input={input} players={[1]} />}
+      {started && (
+        <TouchPad
+          input={input}
+          energyRatio={hud ? hud.fighters[0].energy / hud.fighters[0].maxEnergy : 1}
+          bombs={hud?.fighters[0].bombs ?? 0}
+          onFullscreen={toggleFullscreen}
+        />
+      )}
 
       <p className="mt-2 px-4 text-center font-mono text-[10px] text-white/35">
         移動 ← → ↑ ↓ / WASD ・ ショット SPACE ・ ボム 右SHIFT
