@@ -55,9 +55,33 @@ npm run dev
 | ショット | SPACE / Z | F |
 | ボム | 右SHIFT | G |
 
-## 通信対戦の土台（実装中）
+## オンライン対戦（/versus/online）— 2台の端末で対戦
 
-2台の端末で対戦するための基盤を `lib/versus/net/` に実装しています。UI はこれからですが、ロジックとネットコードは検証済みです。
+部屋を作って参加リンクを相手に送るだけで、2台のスマホ／PC で対戦できます。**どちらの画面でも自分が下側**に表示されます（座標を上下反転して描画）。
+
+### 遊び方
+
+1. 片方が `/versus/online` で「部屋を作る」を押す
+2. 表示された参加リンク（または6桁の部屋コード）を相手に送る
+3. 相手がリンクを開いて「参加」
+4. 両方が「準備完了」を押すと開始。先取ラウンド数と敵の量は部屋を作った側が設定できます
+
+### サーバーの起動
+
+フロント（Next.js）とは別に、常時接続を受けるゲームサーバーが必要です。
+
+```bash
+npm run versus-server   # 既定で ws://localhost:8787
+npm run dev             # 別のターミナルで
+```
+
+同じ Wi-Fi の実機から遊ぶ場合は、PC の IP を使って `NEXT_PUBLIC_VERSUS_SERVER=ws://192.168.x.x:8787` を設定してください（未設定時はページを開いているホスト名の 8787 番に接続します）。
+
+`server/versus-server.ts` は WebSocket と `GameRoom` を繋ぐだけの薄いアダプタです。Cloudflare Durable Objects や Deno Deploy へ移す場合も、差し替えるのはこのファイルだけで済みます。
+
+## 通信対戦の設計
+
+2台の端末で対戦するための基盤は `lib/versus/net/` にあります。
 
 **サーバー権威（authoritative server）方式**を採っています。決定論的ロックステップにしないのは、`Math.sin` などの三角関数が実装依存で、iOS(JavaScriptCore) と Android(V8) の間でごく僅かにズレ得るためです。60Hz × 75秒 = 4,500 フレームも回すと「片方の画面だけ弾が当たる」破綻に育ちます。対戦エンジンは DOM に依存していないので、同じコードをそのままサーバーで実行できます。
 
@@ -78,6 +102,8 @@ npm run dev
 | 劣悪（200ms・ロス10%） | 0.10px | 231 / 42 kbps |
 
 いずれの条件でも試合は最後まで成立し、両クライアントとサーバーの勝敗が一致します。同一シード・同一入力なら試合が完全に再現されます。
+
+実ブラウザ2つ（別コンテキスト＝別端末に相当）でも、部屋作成→リンク参加→設定変更→対戦→決着→再戦まで通しで動作を確認しています。
 
 ## パスワードで限定公開する
 
@@ -129,6 +155,10 @@ lib/versus/net/room.ts          権威サーバー（トランスポート非依
 lib/versus/net/client.ts        クライアント側の予測・補間
 lib/versus/net/loopback.ts      検証用の仮想ネットワーク（遅延・ロス注入）
 lib/versus/net/simulate.ts      ネットコードのオフライン検証ハーネス
+lib/versus/net/socket.ts        WebSocket 接続（自動再接続つき）
+lib/versus/net/viewAdapter.ts   スナップショット→描画状態（P2視点の反転）
+server/versus-server.ts         対戦サーバー（WebSocket アダプタ）
+app/versus/online/page.tsx      オンライン対戦のエントリ
 
 proxy.ts                        Basic 認証による限定公開（SITE_PASSWORD 設定時のみ有効）
 ```

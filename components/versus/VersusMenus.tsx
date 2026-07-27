@@ -127,6 +127,12 @@ export function VersusMenu({
         <button className={btnPrimary} onClick={onStart}>
           ▶ 対戦開始
         </button>
+        <Link
+          href="/versus/online"
+          className="rounded-md border border-sky-300/50 bg-sky-400/15 px-4 py-2 text-center text-sm font-bold text-sky-100 transition-colors hover:bg-sky-400/30 active:scale-[0.98]"
+        >
+          📱 2台で対戦（オンライン）
+        </Link>
         <button className={btn} onClick={onHowTo}>
           ルールと操作
         </button>

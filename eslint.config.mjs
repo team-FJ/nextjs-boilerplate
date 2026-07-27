@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 対戦サーバーのビルド成果物
+    ".versus-server.mjs",
   ]),
 ]);
 

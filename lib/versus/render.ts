@@ -1,8 +1,39 @@
 import { getSprite, roundRect } from "../game/sprites";
 import { BAND, BOTTOM_ZONE, TOP_ZONE, V_H, V_W, VERSUS_ITEMS, VERSUS_WEAPONS } from "./constants";
 import { BAND_ENEMIES, VERSUS_FIGHTER_SPRITE } from "./enemies";
-import type { VersusEngine } from "./engine";
-import type { Fighter } from "./types";
+import type { Settings } from "../game/types";
+import type {
+  BandEnemy,
+  Fighter,
+  PlayerId,
+  VersusBullet,
+  VersusItem,
+  VersusParticle,
+  VersusPhase,
+} from "./types";
+
+/**
+ * 描画に必要な状態。ローカル対戦では VersusEngine が、通信対戦では
+ * サーバーのスナップショットから組み立てた状態がこれを満たす。
+ */
+export interface RenderableVersus {
+  settings: Settings;
+  shake: number;
+  flash: number;
+  flashColor: string;
+  phase: VersusPhase;
+  round: number;
+  roundTime: number;
+  countdown: number;
+  banner: string | null;
+  lastRoundWinner: PlayerId | 0 | null;
+  overdrive: boolean;
+  fighters: [Fighter, Fighter];
+  bullets: VersusBullet[];
+  enemies: BandEnemy[];
+  items: VersusItem[];
+  particles: VersusParticle[];
+}
 
 interface Star {
   x: number;
@@ -20,7 +51,7 @@ export class VersusRenderer {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, engine: VersusEngine, dt: number) {
+  draw(ctx: CanvasRenderingContext2D, engine: RenderableVersus, dt: number) {
     this.time += dt;
     ctx.save();
     ctx.clearRect(0, 0, V_W, V_H);
@@ -40,7 +71,7 @@ export class VersusRenderer {
     this.drawOverlay(ctx, engine);
   }
 
-  private drawField(ctx: CanvasRenderingContext2D, engine: VersusEngine, dt: number) {
+  private drawField(ctx: CanvasRenderingContext2D, engine: RenderableVersus, dt: number) {
     // 上下で色味を変えて陣地を直感的に分ける
     const top = ctx.createLinearGradient(0, 0, 0, BAND.top);
     top.addColorStop(0, "#2a0a1a");
@@ -116,7 +147,7 @@ export class VersusRenderer {
     ctx.globalAlpha = 1;
   }
 
-  private drawEnemies(ctx: CanvasRenderingContext2D, engine: VersusEngine) {
+  private drawEnemies(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
     for (const e of engine.enemies) {
       const def = BAND_ENEMIES[e.type];
       const color = e.hitFlash > 0 ? "#ffffff" : def.color;
@@ -185,7 +216,7 @@ export class VersusRenderer {
     }
   }
 
-  private drawBullets(ctx: CanvasRenderingContext2D, engine: VersusEngine) {
+  private drawBullets(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
     const cb = engine.settings.colorBlind;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
@@ -227,7 +258,7 @@ export class VersusRenderer {
     ctx.restore();
   }
 
-  private drawItems(ctx: CanvasRenderingContext2D, engine: VersusEngine) {
+  private drawItems(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
     for (const item of engine.items) {
       const label = VERSUS_ITEMS[item.kind];
       if (item.life < 2.5 && Math.floor(item.life * 8) % 2 === 0) continue;
@@ -275,7 +306,7 @@ export class VersusRenderer {
     }
   }
 
-  private drawParticles(ctx: CanvasRenderingContext2D, engine: VersusEngine) {
+  private drawParticles(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
     ctx.save();
     for (const p of engine.particles) {
       const a = Math.max(0, p.life / p.maxLife);
@@ -303,7 +334,7 @@ export class VersusRenderer {
     ctx.restore();
   }
 
-  private drawOverlay(ctx: CanvasRenderingContext2D, engine: VersusEngine) {
+  private drawOverlay(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
     if (engine.flash > 0) {
       ctx.fillStyle = engine.flashColor;
       ctx.globalAlpha = Math.min(0.45, engine.flash * 0.45);
