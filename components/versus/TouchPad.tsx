@@ -141,6 +141,10 @@ export function TouchPad({
     },
   });
 
+  // iOS Safari は要素の全画面化に対応していないので、その場合はボタンを出さない
+  const fullscreenSupported =
+    typeof document !== "undefined" && document.fullscreenEnabled === true;
+
   const knobX = stick ? Math.max(-MAX_RADIUS, Math.min(MAX_RADIUS, stick.x - stick.originX)) : 0;
   const knobY = stick ? Math.max(-MAX_RADIUS, Math.min(MAX_RADIUS, stick.y - stick.originY)) : 0;
   const energyAngle = Math.max(0, Math.min(1, energyRatio)) * 360;
@@ -203,7 +207,7 @@ export function TouchPad({
           >
             BOMB {bombs > 0 ? "★".repeat(bombs) : "-"}
           </button>
-          {onFullscreen && (
+          {onFullscreen && fullscreenSupported && (
             <button
               onClick={onFullscreen}
               aria-label="全画面"

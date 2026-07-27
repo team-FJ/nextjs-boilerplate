@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "versus-server": "esbuild server/versus-server.ts --bundle --platform=node --format=esm --outfile=.versus-server.mjs --external:ws && node .versus-server.mjs"
+    "versus-server": "esbuild server/versus-server.ts --bundle --platform=node --format=esm --outfile=.versus-server.mjs --external:ws && node .versus-server.mjs",
+    "standalone": "node scripts/standalone/build.mjs"
   },
   "dependencies": {
     "next": "16.0.4",
@@ -15,6 +16,7 @@
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
