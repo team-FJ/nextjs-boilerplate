@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { DIFFICULTY, ITEM_LABEL, THEMES } from "@/lib/game/constants";
 import { STAGES } from "@/lib/game/stages";
 import type { Difficulty, Progress, Settings, StageResult } from "@/lib/game/types";
@@ -51,6 +53,12 @@ export function TitleScreen({
         <button className={btn} onClick={onHowTo}>
           遊び方 / アイテム一覧
         </button>
+        <Link
+          href="/versus"
+          className="rounded-md border border-rose-300/50 bg-rose-400/15 px-4 py-2 text-center text-sm font-bold text-rose-100 transition-colors hover:bg-rose-400/30 active:scale-[0.98]"
+        >
+          ⚔ 対戦モード
+        </Link>
       </div>
 
       <div className="font-mono text-[10px] text-white/40">
