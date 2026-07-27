@@ -55,6 +55,25 @@ npm run dev
 | ショット | SPACE / Z | F |
 | ボム | 右SHIFT | G |
 
+## パスワードで限定公開する
+
+デプロイ先の環境変数に `SITE_PASSWORD` を設定すると、Basic 認証で全ページが保護されます（`proxy.ts`）。設定していなければ保護は無効なので、ローカル開発は今までどおりです。
+
+| 環境変数 | 説明 |
+| --- | --- |
+| `SITE_PASSWORD` | 合言葉。**これを設定したときだけ**保護が有効になる |
+| `SITE_USER` | ユーザー名（省略時は `player`） |
+
+Vercel なら Project Settings → Environment Variables に追加して再デプロイ。ローカルで試すなら:
+
+```bash
+SITE_PASSWORD=your-password npm run start
+```
+
+保護されるのはページと静的アセットの両方です。ブラウザは同じ保護領域へ自動で認証情報を送るため、入力を求められるのは最初の1回だけです。
+
+**注意**：これはURLを知られても中身を開かせないための簡易的な鍵です。パスワードは知っている人の間で共有される前提のもので、個人ごとのアカウント管理や権限分けはできません。またリポジトリ自体は public なので、ソースコードはこの保護の対象外です（保護しているのは公開されたサイトだけ）。
+
 ## 構成
 
 ```
@@ -81,6 +100,8 @@ lib/versus/ai.ts                CPU 思考ルーチン
 lib/versus/enemies.ts           中立ゾーンの敵
 lib/versus/render.ts            対戦画面の描画
 lib/versus/input.ts             2人分のキー入力
+
+proxy.ts                        Basic 認証による限定公開（SITE_PASSWORD 設定時のみ有効）
 ```
 
 ゲームロジック（`lib/game/engine.ts` / `lib/versus/engine.ts`）は描画・React から独立しているため、Node 上で固定タイムステップを回して挙動を検証できます。対戦バランス（決着時間・連射レート・上下の有利不利・アイテムの帰属）はこの方法で CPU 同士を多数回対戦させて調整しました。
