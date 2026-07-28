@@ -3,16 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { AudioEngine } from "@/lib/game/audio";
 import { FIXED_DT, MAX_FRAME_SKIP } from "@/lib/game/constants";
 import { loadSettings } from "@/lib/game/storage";
 import type { Settings } from "@/lib/game/types";
 import { V_H, V_W } from "@/lib/versus/constants";
-import { NetClient } from "@/lib/versus/net/client";
-import { VersusSocket, type ConnectionState } from "@/lib/versus/net/socket";
-import { buildRenderable } from "@/lib/versus/net/viewAdapter";
-import { VersusRenderer } from "@/lib/versus/render";
 import { VersusInput } from "@/lib/versus/input";
+import { buildRenderable } from "@/lib/versus/net/viewAdapter";
+import { VersusSession, type SessionRole } from "@/lib/versus/net/session";
+import type { TransportKind, TransportState } from "@/lib/versus/net/transport";
+import { VersusRenderer } from "@/lib/versus/render";
 import type { PlayerId, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
 
 import { TouchPad } from "./TouchPad";
@@ -26,13 +25,7 @@ function randomRoomCode(): string {
   return code;
 }
 
-function defaultServerUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_VERSUS_SERVER;
-  if (configured) return configured;
-  if (typeof window === "undefined") return "ws://localhost:8787";
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:8787`;
-}
+const configuredServer = process.env.NEXT_PUBLIC_VERSUS_SERVER;
 
 /** 入力マネージャは可変オブジェクトなので、state ではなくモジュールスコープで一度だけ作る */
 let inputSingleton: VersusInput | null = null;
@@ -49,28 +42,33 @@ const btn =
 const btnPrimary =
   "rounded-md border border-cyan-300/60 bg-cyan-400/20 px-4 py-2 text-sm font-bold text-cyan-100 transition-colors hover:bg-cyan-400/35 active:scale-[0.98]";
 
-const STATE_LABEL: Record<ConnectionState, string> = {
+const STATE_LABEL: Record<TransportState, string> = {
   connecting: "接続中…",
   open: "接続済み",
-  reconnecting: "再接続中…",
   closed: "切断",
   error: "接続エラー",
+};
+
+const KIND_LABEL: Record<TransportKind, string> = {
+  p2p: "直接つなぐ",
+  websocket: "サーバー経由",
+  tab: "同じ端末の別タブ",
 };
 
 export default function OnlineVersusGame() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const clientRef = useRef<NetClient | null>(null);
-  const socketRef = useRef<VersusSocket | null>(null);
+  const sessionRef = useRef<VersusSession | null>(null);
   const input = getInput();
 
   const [settings] = useState<Settings>(loadSettings);
+  const [kind, setKind] = useState<TransportKind>(configuredServer ? "websocket" : "p2p");
+  const [role, setRole] = useState<SessionRole | null>(null);
   const [room, setRoom] = useState("");
-  // URL に部屋コードが付いていれば入力欄へ入れておく（リンクを開いた側）
   const [inputCode, setInputCode] = useState(
     () => new URLSearchParams(window.location.search).get("room")?.toUpperCase() ?? "",
   );
-  const [connection, setConnection] = useState<ConnectionState>("closed");
+  const [connection, setConnection] = useState<TransportState>("closed");
   const [you, setYou] = useState<PlayerId | null>(null);
   const [peer, setPeer] = useState(false);
   const [ready, setReady] = useState(false);
@@ -80,52 +78,52 @@ export default function OnlineVersusGame() {
   const [rtt, setRtt] = useState(0);
   const [config, setConfig] = useState<VersusConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // クライアント専用で読み込まれるので、初期値をその場で計算できる
-  const [serverUrl] = useState(defaultServerUrl);
 
   // ---- 接続 ---------------------------------------------------------------
   const connect = useCallback(
-    (code: string) => {
+    (nextRole: SessionRole, code: string) => {
       const normalized = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
       if (!normalized) return;
       setError(null);
       setWinner(null);
       setStarted(false);
       setReady(false);
+      setPeer(false);
+      setYou(null);
       setRoom(normalized);
+      setRole(nextRole);
 
       const url = new URL(window.location.href);
       url.searchParams.set("room", normalized);
       window.history.replaceState(null, "", url.toString());
 
-      socketRef.current?.close();
-      const client = new NetClient({ send: (message) => socketRef.current?.send(message) });
-      clientRef.current = client;
-
-      const socket = new VersusSocket({
-        url: defaultServerUrl(),
+      sessionRef.current?.close();
+      const session = new VersusSession({
+        role: nextRole,
         room: normalized,
+        kind,
+        serverUrl: configuredServer,
         onState: (state, detail) => {
           setConnection(state);
-          if (detail) setError(detail);
+          setError(detail ?? null);
         },
-        onMessage: (message) => {
-          client.handle(message, performance.now());
-          if (message.t === "joined") setYou(message.you);
-          if (message.t === "joined") setPeer(message.peer);
-          if (message.t === "peer") setPeer(message.connected);
-          if (message.t === "joined" || message.t === "config" || message.t === "start") {
+        onServerMessage: (message) => {
+          if (message.t === "joined") {
+            setYou(message.you);
+            setPeer(message.peer);
             setConfig(message.config);
           }
+          if (message.t === "peer") setPeer(message.connected);
+          if (message.t === "config" || message.t === "start") setConfig(message.config);
           if (message.t === "start") setStarted(true);
           if (message.t === "over") setWinner(message.winner);
           if (message.t === "error") setError(message.message);
         },
       });
-      socketRef.current = socket;
-      client.join(normalized);
+      sessionRef.current = session;
+      session.join();
     },
-    [],
+    [kind],
   );
 
   // ---- 描画ループ ---------------------------------------------------------
@@ -141,9 +139,7 @@ export default function OnlineVersusGame() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     input.attach();
-
     const renderer = new VersusRenderer();
-    const audio = new AudioEngine();
     let raf = 0;
     let last = performance.now();
     let acc = 0;
@@ -155,15 +151,16 @@ export default function OnlineVersusGame() {
       last = now;
       acc += elapsed;
 
-      const client = clientRef.current;
+      const session = sessionRef.current;
       let steps = 0;
       while (acc >= FIXED_DT && steps < MAX_FRAME_SKIP) {
-        client?.update(FIXED_DT, input.get(1), now);
+        session?.update(FIXED_DT, input.get(1), now);
         acc -= FIXED_DT;
         steps += 1;
       }
       if (steps >= MAX_FRAME_SKIP) acc = 0;
 
+      const client = session?.client;
       const view = client?.getView(now) ?? null;
       if (view && client?.you) {
         const { renderable, hud: snapshot } = buildRenderable(view, client.you, settings);
@@ -184,8 +181,7 @@ export default function OnlineVersusGame() {
     return () => {
       cancelAnimationFrame(raf);
       input.detach();
-      audio.stopBgm();
-      socketRef.current?.close();
+      sessionRef.current?.close();
     };
   }, [settings, input]);
 
@@ -230,7 +226,7 @@ export default function OnlineVersusGame() {
 
   const handleReady = useCallback(() => {
     setReady(true);
-    clientRef.current?.setReady(true);
+    sessionRef.current?.setReady(true);
   }, []);
 
   const shareUrl =
@@ -243,19 +239,19 @@ export default function OnlineVersusGame() {
   }, [shareUrl]);
 
   const inLobby = !started || winner !== null;
+  const isHost = role === "host";
 
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#05060c] py-4">
       <div
         ref={stageRef}
-        className="relative w-full max-w-[480px] max-h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(90,169,255,0.15)] sm:max-h-[calc(100dvh-2rem)]"
+        className="relative max-h-[calc(100dvh-13rem)] w-full max-w-[480px] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(90,169,255,0.15)] sm:max-h-[calc(100dvh-2rem)]"
         style={{ aspectRatio: `${V_W} / ${V_H}` }}
       >
         <canvas ref={canvasRef} className="block h-full w-full touch-none bg-black" />
 
         {hud && started && winner === null && <VersusHud hud={hud} />}
 
-        {/* 通信状態 */}
         {started && (
           <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[9px] text-white/35">
             {connection === "open" ? `${rtt}ms` : STATE_LABEL[connection]}
@@ -274,7 +270,10 @@ export default function OnlineVersusGame() {
             {winner !== null && hud && (
               <div className="rounded border border-white/20 bg-white/5 p-3 text-center">
                 <div className="font-mono text-[10px] text-white/50">MATCH SET</div>
-                <div className="text-xl font-black" style={{ color: winner === you ? "#8dff5a" : "#ff6b6b" }}>
+                <div
+                  className="text-xl font-black"
+                  style={{ color: winner === you ? "#8dff5a" : "#ff6b6b" }}
+                >
                   {winner === 0 ? "引き分け" : winner === you ? "あなたの勝ち" : "あなたの負け"}
                 </div>
                 <div className="mt-1 font-mono text-[11px] text-white/60">
@@ -286,11 +285,37 @@ export default function OnlineVersusGame() {
             {!room ? (
               <div className="flex flex-col gap-3">
                 <p className="text-[11px] leading-relaxed text-white/70">
-                  片方が「部屋を作る」を押し、表示されたリンクをもう1台に送ってください。
-                  リンクを開くと同じ部屋に入れます。
+                  サーバーは要りません。片方が「部屋を作る」を押すと
+                  <span className="font-bold text-cyan-200">その端末が対戦の進行役</span>
+                  になります。リンクを相手に送って参加してもらってください。
                 </p>
-                <button className={btnPrimary} onClick={() => connect(randomRoomCode())}>
-                  部屋を作る
+
+                <div className="rounded border border-white/15 bg-white/5 p-2">
+                  <div className="mb-1 font-mono text-[10px] text-white/50">つなぎ方</div>
+                  <div className="flex overflow-hidden rounded border border-white/20">
+                    {(["p2p", "websocket", "tab"] as TransportKind[])
+                      .filter((k) => k !== "websocket" || configuredServer)
+                      .map((k) => (
+                        <button
+                          key={k}
+                          onClick={() => setKind(k)}
+                          className={`flex-1 px-2 py-1 text-[10px] font-semibold ${
+                            kind === k ? "bg-cyan-400/30 text-cyan-100" : "bg-white/[0.03] text-white/60"
+                          }`}
+                        >
+                          {KIND_LABEL[k]}
+                        </button>
+                      ))}
+                  </div>
+                  <div className="mt-1 font-mono text-[9px] leading-relaxed text-white/40">
+                    {kind === "p2p" && "端末同士を直接つなぎます（顔合わせだけ無料の公開サービスを利用）"}
+                    {kind === "websocket" && `ゲームサーバー経由：${configuredServer}`}
+                    {kind === "tab" && "同じブラウザで2つのタブを開いて動作を確認する用です"}
+                  </div>
+                </div>
+
+                <button className={btnPrimary} onClick={() => connect("host", randomRoomCode())}>
+                  部屋を作る（この端末が進行役）
                 </button>
                 <div className="flex gap-2">
                   <input
@@ -300,16 +325,17 @@ export default function OnlineVersusGame() {
                     maxLength={6}
                     className="w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-center font-mono text-lg tracking-[0.3em] text-white placeholder:text-white/30"
                   />
-                  <button className={btn} onClick={() => connect(inputCode)} disabled={!inputCode}>
+                  <button className={btn} onClick={() => connect("guest", inputCode)} disabled={!inputCode}>
                     参加
                   </button>
                 </div>
-                <div className="font-mono text-[9px] text-white/35">サーバー: {serverUrl}</div>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
                 <div className="rounded border border-white/20 bg-white/5 p-3 text-center">
-                  <div className="font-mono text-[10px] text-white/50">部屋コード</div>
+                  <div className="font-mono text-[10px] text-white/50">
+                    部屋コード（{KIND_LABEL[kind]}・{isHost ? "進行役" : "参加者"}）
+                  </div>
                   <div className="font-mono text-3xl font-black tracking-[0.3em] text-cyan-200">{room}</div>
                   <button className="mt-2 font-mono text-[10px] text-cyan-300 underline" onClick={copyLink}>
                     参加リンクをコピー
@@ -333,18 +359,16 @@ export default function OnlineVersusGame() {
                   </div>
                 </div>
 
-                {you === 1 && (
+                {isHost && (
                   <div className="rounded border border-white/15 bg-white/5 p-2">
-                    <div className="mb-1 font-mono text-[10px] text-white/50">
-                      設定（部屋を作った人が変更できます）
-                    </div>
+                    <div className="mb-1 font-mono text-[10px] text-white/50">設定（進行役だけが変更できます）</div>
                     <div className="flex items-center justify-between py-1">
                       <span className="text-[11px]">先取ラウンド</span>
                       <div className="flex overflow-hidden rounded border border-white/20">
                         {[1, 2, 3].map((n) => (
                           <button
                             key={n}
-                            onClick={() => clientRef.current?.setConfig({ roundsToWin: n })}
+                            onClick={() => sessionRef.current?.setConfig({ roundsToWin: n })}
                             className={`px-2.5 py-1 text-[10px] font-semibold ${
                               config?.roundsToWin === n
                                 ? "bg-cyan-400/30 text-cyan-100"
@@ -362,7 +386,7 @@ export default function OnlineVersusGame() {
                         {(["low", "normal", "high"] as const).map((d) => (
                           <button
                             key={d}
-                            onClick={() => clientRef.current?.setConfig({ enemyDensity: d })}
+                            onClick={() => sessionRef.current?.setConfig({ enemyDensity: d })}
                             className={`px-2.5 py-1 text-[10px] font-semibold ${
                               config?.enemyDensity === d
                                 ? "bg-cyan-400/30 text-cyan-100"
@@ -383,17 +407,20 @@ export default function OnlineVersusGame() {
                   </div>
                 )}
 
-                <button className={btnPrimary} onClick={handleReady} disabled={ready && !winner}>
+                <button className={btnPrimary} onClick={handleReady} disabled={ready && winner === null}>
                   {winner !== null ? "もう一度たたかう" : ready ? "相手の準備を待っています…" : "準備完了"}
                 </button>
-                <p className="font-mono text-[9px] leading-relaxed text-white/40">
-                  操作：矢印キー / WASD ・ SPACE ショット ・ 右SHIFT ボム。
-                  スマホは画面下のパッド。どちらの画面でも自分が下側に表示されます。
-                </p>
+
+                {isHost && (
+                  <p className="font-mono text-[9px] leading-relaxed text-amber-200/70">
+                    進行役の端末は、対戦中この画面を開いたままにしてください。
+                    別のアプリに切り替えると試合が止まります。
+                  </p>
+                )}
               </div>
             )}
 
-            <div className="mt-auto flex gap-2">
+            <div className="mt-auto flex gap-2 pt-2">
               <Link href="/versus" className={`${btn} flex-1 text-center`}>
                 1台で対戦へ
               </Link>

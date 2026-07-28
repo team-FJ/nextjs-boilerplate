@@ -66,6 +66,16 @@ npm run dev
 3. 相手がリンクを開いて「参加」
 4. 両方が「準備完了」を押すと開始。先取ラウンド数と敵の量は部屋を作った側が設定できます
 
+### つなぎ方は3種類
+
+| 方式 | 必要なもの | 特徴 |
+| --- | --- | --- |
+| **直接つなぐ（P2P）** | なし | **ゲームサーバー不要**。部屋を作った端末のブラウザの中でサーバー（`GameRoom`）が動き、相手とは WebRTC で直結する。顔合わせ（シグナリング）だけ PeerJS の無料サーバーを借りる |
+| **サーバー経由** | `npm run versus-server` | 従来の方式。どちらの端末が閉じても試合が続くので安定 |
+| **同じ端末の別タブ** | なし | BroadcastChannel を使う動作確認用。2タブ開いて挙動を見るためのもの |
+
+P2P では**進行役の端末が対戦中ずっと画面を開いている必要があります**（別アプリに切り替えると試合が止まります）。安定して遊ぶならサーバー経由が本筋です。
+
 ### スマホでの操作
 
 - **左半分はどこを押してもスティックになります**。押した位置が原点になるので、小さなボタンを狙う必要がありません
@@ -174,6 +184,9 @@ lib/versus/net/loopback.ts      検証用の仮想ネットワーク（遅延・
 lib/versus/net/simulate.ts      ネットコードのオフライン検証ハーネス
 lib/versus/net/socket.ts        WebSocket 接続（自動再接続つき）
 lib/versus/net/viewAdapter.ts   スナップショット→描画状態（P2視点の反転）
+lib/versus/net/transport.ts     通信経路（P2P / 別タブ）の実装
+lib/versus/net/host.ts          ブラウザの中でサーバーを動かす仕組み
+lib/versus/net/session.ts       ホスト／ゲストを同じ形で扱うための入口
 server/versus-server.ts         対戦サーバー（WebSocket アダプタ）
 app/versus/online/page.tsx      オンライン対戦のエントリ
 
