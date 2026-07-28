@@ -6,21 +6,29 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "versus-server": "esbuild server/versus-server.ts --bundle --platform=node --format=esm --outfile=.versus-server.mjs --external:ws && node .versus-server.mjs",
+    "standalone": "node scripts/standalone/build.mjs",
+    "build:static": "STATIC_EXPORT=1 next build"
   },
   "dependencies": {
     "next": "16.0.4",
+    "peerjs": "^1.5.5",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.1",
     "eslint": "^9",
     "eslint-config-next": "16.0.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ws": "^8.21.1"
   }
 }

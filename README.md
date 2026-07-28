@@ -1,36 +1,223 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# INVADER ASSAULT
 
-## Getting Started
+Next.js + Canvas 2D で作ったブラウザ用インベーダーゲーム。外部アセット・外部ライブラリなし（ドット絵はコード内の文字列、効果音と BGM は WebAudio で生成）。
 
-First, run the development server:
+- `/` … 1人用キャンペーン（全30ステージ）
+- `/versus` … 対戦モード（VS CPU / 同一キーボードで2人対戦）
+
+## 起動
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+[http://localhost:3000](http://localhost:3000) を開くとタイトル画面が表示されます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 操作
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| 操作 | キー |
+| --- | --- |
+| 移動 | ← → ↑ ↓ / WASD |
+| ショット | SPACE / Z（オートファイア既定 ON） |
+| ボム（全画面攻撃） | X / SHIFT |
+| ポーズ | ESC / P |
 
-## Learn More
+スマートフォンでは画面下の仮想パッド、オプションで「マウス操作」を選ぶとポインタ追従で操作できます。
 
-To learn more about Next.js, take a look at the following resources:
+## 収録内容
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **ステージ 30 種** — 8 種のテーマ（深宇宙・星雲・氷晶・溶融・汚染・虚無・恒星圏・電脳）、編隊形状 10 種、ステージ固有ギミック（メテオ／デブリ／レーザーグリッド／恒星風／視界不良）
+- **敵 13 種** — 突撃するカミカゼ、分裂するスプリッタ、仲間を回復するヒーラー、透過するゴーストなど
+- **ボス 6 体** — 破壊可能パーツ・HP に応じたフェーズ変化・10 種の攻撃パターン（5・10・15・20・25・30 面）
+- **武装 6 種 × パワーレベル 5** — バルカン／スプレッド／レーザー／ミサイル／ウェーブ／レールガン
+- **アイテム 18 種** — パワーアップ、オプション（随伴ポッド最大 4 基）、バリア、スピード、ラピッド、ボム、1UP、スコア 2 倍、スロー、マグネット、フリーズ、ピアース、リペア ほか
+- **オプション設定** — 難易度 4 段階、操作方法、オートファイア、随伴ポッドの配置（追従／左右／回転）、画面揺れ、エフェクト量、CRT スキャンライン、スターフィールド、色覚サポート、FPS 表示、SE/BGM 音量、進行状況リセット
+- **スコアと記録** — コンボ倍率、被弾なし・命中率・残機ボーナス、10 万点ごとの 1UP、ステージ別ハイスコアと解放状況を localStorage に保存
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 対戦モード（/versus）
 
-## Deploy on Vercel
+画面を上下に分割し、下が自分、上が相手。互いの陣地からは出られない。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **中立ゾーン** — 画面中央を敵が横切る。ツインキャノンやボマーは上下どちらにも撃ってくるため、撃ち合いの最中も無視できない。
+- **アイテムの奪い合い** — 中立ゾーンの敵を倒すと、**倒した側の陣地へアイテムが流れてくる**。枠の色が持ち主を示し、拾えるのはその持ち主だけ。強化したければ相手より先に敵を仕留める必要がある。
+- **連射はエネルギー制** — 1発ごとにエネルギーを消費し、時間で回復する（継続射撃は毎秒約1.2発、溜めれば3連射）。押しっぱなしで撃ち続けられないので、撃つ／溜めるの読み合いが生まれる。強化アイテムの RAPID も倍率式・重ねがけ不可で、上限が伸びすぎないようにしてある。
+- **決着** — 耐久を先に0にするか、時間切れ時に耐久の多い方がラウンド勝利。残り20秒で OVERDRIVE に入り、互いの与ダメージが1.6倍になる。先取ラウンド数は1〜3本から選択。
+- **CPU 4段階** — ルーキー／ノーマル／ベテラン／エース。反応速度・狙いのブレ・回避距離・アイテムへの積極性で強さを表現している。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+対戦用アイテムは11種（パワー、ラピッド、スプレッド、レーザー、ホーミング、バリア、リペア、スピード、エネルギー、ボム、スロー）。武装系は時間制限付きなので、一度の強化で試合が決まってしまわないようにしている。
+
+### 対戦の操作
+
+| | P1（下） | P2（上・2人対戦時） |
+| --- | --- | --- |
+| 移動 | ← → ↑ ↓（VS CPU 時は WASD も可） | W A S D |
+| ショット | SPACE / Z | F |
+| ボム | 右SHIFT | G |
+
+## オンライン対戦（/versus/online）— 2台の端末で対戦
+
+部屋を作って参加リンクを相手に送るだけで、2台のスマホ／PC で対戦できます。**どちらの画面でも自分が下側**に表示されます（座標を上下反転して描画）。
+
+### 遊び方
+
+1. 片方が `/versus/online` で「部屋を作る」を押す
+2. 表示された参加リンク（または6桁の部屋コード）を相手に送る
+3. 相手がリンクを開いて「参加」
+4. 両方が「準備完了」を押すと開始。先取ラウンド数と敵の量は部屋を作った側が設定できます
+
+### つなぎ方は3種類
+
+| 方式 | 必要なもの | 特徴 |
+| --- | --- | --- |
+| **直接つなぐ（P2P）** | なし | **ゲームサーバー不要**。部屋を作った端末のブラウザの中でサーバー（`GameRoom`）が動き、相手とは WebRTC で直結する。顔合わせ（シグナリング）だけ PeerJS の無料サーバーを借りる |
+| **サーバー経由** | `npm run versus-server` | 従来の方式。どちらの端末が閉じても試合が続くので安定 |
+| **同じ端末の別タブ** | なし | BroadcastChannel を使う動作確認用。2タブ開いて挙動を見るためのもの |
+
+P2P では**進行役の端末が対戦中ずっと画面を開いている必要があります**（別アプリに切り替えると試合が止まります）。安定して遊ぶならサーバー経由が本筋です。
+
+### スマホでの操作
+
+- **左半分はどこを押してもスティックになります**。押した位置が原点になるので、小さなボタンを狙う必要がありません
+- **SHOT ボタンの外周がエネルギー残量**です。撃つと減り、離すと回復するので、下だけ見ていても「あと何発撃てるか」が分かります
+- 対戦中は画面が消えません（Wake Lock）。⛶ ボタンで全画面にできます
+- スティックの入力は8方向に量子化して既存の入力モデル（6ビット）に載せているため、通信対戦の予測処理はそのまま使えます
+
+## GitHub Pages へ公開する
+
+`.github/workflows/pages.yml` を用意してあります。`main` またはこのブランチへ push すると、静的ファイルとして書き出して GitHub Pages へ配置します。
+
+**初回だけ**、リポジトリの Settings → Pages → Source を「**GitHub Actions**」に切り替えてください。以後は push するだけで更新されます。
+
+公開先：`https://<owner>.github.io/<リポジトリ名>/`
+
+```bash
+npm run build:static   # 手元で書き出す場合（out/ に出力）
+```
+
+サブディレクトリ配信になるため、`PAGES_BASE_PATH` にリポジトリ名を渡します（ワークフローが自動で設定します）。手元で確認するときは:
+
+```bash
+PAGES_BASE_PATH=/nextjs-boilerplate npm run build:static
+```
+
+### 静的配信で変わること
+
+| | 静的配信（GitHub Pages） |
+| --- | --- |
+| 1人用・1台対戦 | そのまま動きます |
+| **オンライン対戦** | **「直接つなぐ（P2P）」で動きます**（サーバー不要） |
+| 「サーバー経由」の選択肢 | 出ません（`NEXT_PUBLIC_VERSUS_SERVER` 未設定のため） |
+| **`proxy.ts` の Basic 認証** | **効きません**。サーバーが無いため、サイトは誰でも見られる状態になります |
+
+### サーバーを用意できない場合
+
+通信対戦にはサーバーが必要ですが、**1人用と1台対戦だけなら1ファイルのHTMLにまとめられます**。
+
+```bash
+npm run standalone   # → dist/invader-assault.html
+```
+
+このファイルはブラウザで開くだけで動きます（インストール不要・通信不要）。iPhone などに送って直接開いても遊べます。通信対戦はサーバーが要るため、単体版では導線ごと非表示になります。
+
+### サーバーの起動
+
+フロント（Next.js）とは別に、常時接続を受けるゲームサーバーが必要です。
+
+```bash
+npm run versus-server   # 既定で ws://localhost:8787
+npm run dev             # 別のターミナルで
+```
+
+同じ Wi-Fi の実機から遊ぶ場合は、PC の IP を使って `NEXT_PUBLIC_VERSUS_SERVER=ws://192.168.x.x:8787` を設定してください（未設定時はページを開いているホスト名の 8787 番に接続します）。
+
+`server/versus-server.ts` は WebSocket と `GameRoom` を繋ぐだけの薄いアダプタです。Cloudflare Durable Objects や Deno Deploy へ移す場合も、差し替えるのはこのファイルだけで済みます。
+
+## 通信対戦の設計
+
+2台の端末で対戦するための基盤は `lib/versus/net/` にあります。
+
+**サーバー権威（authoritative server）方式**を採っています。決定論的ロックステップにしないのは、`Math.sin` などの三角関数が実装依存で、iOS(JavaScriptCore) と Android(V8) の間でごく僅かにズレ得るためです。60Hz × 75秒 = 4,500 フレームも回すと「片方の画面だけ弾が当たる」破綻に育ちます。対戦エンジンは DOM に依存していないので、同じコードをそのままサーバーで実行できます。
+
+- **入力はキュー方式** — クライアントは毎フレーム1つ入力を送り、サーバーは1ティックにつき1つだけ消費する。「最新入力で上書き」にすると、クライアントの予測とサーバーの適用列が食い違って巻き戻しが増える
+- **入力の冗長化** — 1パケットに直近3フレーム分の入力を相乗りさせ、1つ落ちても次のパケットで穴埋めする
+- **自機は予測、それ以外は補間** — 自分の機体は入力を即反映し、サーバーの答えが届いたら差分だけ補正。相手・敵・弾は100ms遅らせて補間表示
+- **被弾・アイテム取得・勝敗は予測しない** — サーバーの結果のみを採用し、「当たっていたのに巻き戻された」を防ぐ
+
+### 検証結果（`lib/versus/net/simulate.ts`）
+
+遅延・ゆらぎ・パケットロスを注入した仮想ネットワークで、CPU 同士を戦わせて計測しています。
+
+| 回線条件 | 巻き戻し量（平均） | 通信量（下り／上り） |
+| --- | --- | --- |
+| 同一Wi-Fi（片道10ms） | 0.05px | 321 / 47 kbps |
+| モバイル良好（50ms・ロス1%） | 0.05px | 269 / 46 kbps |
+| モバイル不安定（100ms・ロス5%） | 0.05px | 220 / 45 kbps |
+| 劣悪（200ms・ロス10%） | 0.10px | 231 / 42 kbps |
+
+いずれの条件でも試合は最後まで成立し、両クライアントとサーバーの勝敗が一致します。同一シード・同一入力なら試合が完全に再現されます。
+
+実ブラウザ2つ（別コンテキスト＝別端末に相当）でも、部屋作成→リンク参加→設定変更→対戦→決着→再戦まで通しで動作を確認しています。
+
+## パスワードで限定公開する
+
+デプロイ先の環境変数に `SITE_PASSWORD` を設定すると、Basic 認証で全ページが保護されます（`proxy.ts`）。設定していなければ保護は無効なので、ローカル開発は今までどおりです。
+
+| 環境変数 | 説明 |
+| --- | --- |
+| `SITE_PASSWORD` | 合言葉。**これを設定したときだけ**保護が有効になる |
+| `SITE_USER` | ユーザー名（省略時は `player`） |
+
+Vercel なら Project Settings → Environment Variables に追加して再デプロイ。ローカルで試すなら:
+
+```bash
+SITE_PASSWORD=your-password npm run start
+```
+
+保護されるのはページと静的アセットの両方です。ブラウザは同じ保護領域へ自動で認証情報を送るため、入力を求められるのは最初の1回だけです。
+
+**注意**：これはURLを知られても中身を開かせないための簡易的な鍵です。パスワードは知っている人の間で共有される前提のもので、個人ごとのアカウント管理や権限分けはできません。またリポジトリ自体は public なので、ソースコードはこの保護の対象外です（保護しているのは公開されたサイトだけ）。
+
+## 構成
+
+```
+app/page.tsx                    エントリ（クライアント専用でゲームを読み込む）
+components/game/InvaderGame.tsx キャンバス・メインループ・画面遷移
+components/game/Hud.tsx         プレイ中の HUD
+components/game/Menus.tsx       タイトル／ステージ選択／オプション／リザルト
+lib/game/engine.ts              ゲームロジック（更新・当たり判定・進行管理）
+lib/game/render.ts              Canvas 描画
+lib/game/stages.ts              全 30 ステージ定義
+lib/game/enemies.ts             敵・ボスのパラメータとドット絵
+lib/game/formations.ts          編隊形状の生成
+lib/game/constants.ts           画面サイズ・難易度・テーマ・アイテム定義
+lib/game/audio.ts               WebAudio による効果音・BGM 生成
+lib/game/input.ts               キーボード／ポインタ入力
+lib/game/storage.ts             設定・進行状況の永続化
+lib/game/sprites.ts             ドット絵→キャンバス変換（両モードで共有）
+
+app/versus/page.tsx             対戦モードのエントリ
+components/versus/              対戦モードの画面（HUD・メニュー・タッチ操作）
+lib/versus/engine.ts            対戦ロジック（陣地・中立ゾーン・アイテムの帰属）
+lib/versus/constants.ts         対戦バランス定数（エネルギー制・アイテム・CPU設定）
+lib/versus/ai.ts                CPU 思考ルーチン
+lib/versus/enemies.ts           中立ゾーンの敵
+lib/versus/render.ts            対戦画面の描画
+lib/versus/input.ts             2人分のキー入力
+lib/versus/net/protocol.ts      通信プロトコル（入力・スナップショット）
+lib/versus/net/room.ts          権威サーバー（トランスポート非依存）
+lib/versus/net/client.ts        クライアント側の予測・補間
+lib/versus/net/loopback.ts      検証用の仮想ネットワーク（遅延・ロス注入）
+lib/versus/net/simulate.ts      ネットコードのオフライン検証ハーネス
+lib/versus/net/socket.ts        WebSocket 接続（自動再接続つき）
+lib/versus/net/viewAdapter.ts   スナップショット→描画状態（P2視点の反転）
+lib/versus/net/transport.ts     通信経路（P2P / 別タブ）の実装
+lib/versus/net/host.ts          ブラウザの中でサーバーを動かす仕組み
+lib/versus/net/session.ts       ホスト／ゲストを同じ形で扱うための入口
+server/versus-server.ts         対戦サーバー（WebSocket アダプタ）
+app/versus/online/page.tsx      オンライン対戦のエントリ
+
+proxy.ts                        Basic 認証による限定公開（SITE_PASSWORD 設定時のみ有効）
+```
+
+ゲームロジック（`lib/game/engine.ts` / `lib/versus/engine.ts`）は描画・React から独立しているため、Node 上で固定タイムステップを回して挙動を検証できます。対戦バランス（決着時間・連射レート・上下の有利不利・アイテムの帰属）はこの方法で CPU 同士を多数回対戦させて調整しました。

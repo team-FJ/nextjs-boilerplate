@@ -1,0 +1,64 @@
+# GitHub Pages へゲームを配置するワークフロー。
+#
+# サーバーを持たない静的ファイルとして書き出すため、以下は無効になります：
+#   - proxy.ts の Basic 認証（＝サイトは誰でも見られる状態になります）
+#   - 「サーバー経由」の通信対戦（NEXT_PUBLIC_VERSUS_SERVER 未設定のため選択肢に出ません）
+# 通信対戦は「直接つなぐ（P2P）」で動きます。サーバーは不要です。
+#
+# 初回だけ、リポジトリの Settings → Pages → Source を
+# 「GitHub Actions」に切り替えてください。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時に走らせない（最後の1つだけを反映する）
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: 静的ファイルを書き出す
+        env:
+          STATIC_EXPORT: "1"
+          # https://<owner>.github.io/<repo>/ で配信されるため、リポジトリ名をパスに含める
+          PAGES_BASE_PATH: /${{ github.event.repository.name }}
+        run: npm run build
+
+      - name: Jekyll の処理を止める（_next ディレクトリが無視されないように）
+        run: touch out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
