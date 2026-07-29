@@ -218,6 +218,9 @@ export class NetClient {
       }
     }
     if (!this.you) return;
+    // 試合が始まる前に送っても、サーバーは消費せずキューに積むだけ。
+    // ロビーで待った秒数ぶんの入力が溜まり、開始後もその遅れが解消しないため送らない。
+    if (!this.started) return;
 
     // 入力はフレームごとに1つ送る。サーバーも1ティックにつき1つ消費するので、
     // 予測の巻き戻し単位とサーバーの適用単位が 1:1 で対応する。
@@ -240,8 +243,11 @@ export class NetClient {
     const mine = latest.f[this.you - 1];
 
     if (!this.predicted) this.predicted = { x: mine.x, y: mine.y };
-    // 送った入力は、サーバーが処理を認めるまで保持しておく
-    this.pending.push({ seq: this.seq, input, dt });
+    // 送った入力は、サーバーが処理を認めるまで保持しておく。
+    // 呼び出し側は同じオブジェクトを毎フレーム使い回してくるので、必ず複製する。
+    // 参照のまま持つと、巻き戻しの再計算が「そのときの入力」ではなく
+    // 「いまの入力」で行われ、自機が飛ぶ。
+    this.pending.push({ seq: this.seq, input: { ...input }, dt });
     if (this.pending.length > 120) this.pending.shift();
 
     const moved = this.step(this.predicted.x, this.predicted.y, input, dt, mine);

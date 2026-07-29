@@ -226,6 +226,14 @@ export class GameRoom {
   start(seed = this.seed ?? Math.floor(Math.random() * 0xffffffff)) {
     this.started = true;
     this.tick = 0;
+    // 開始前に届いていた入力は捨てる。持ち越すとその分だけサーバーが遅れ、
+    // クライアントは常に先を予測し続けることになる（巻き戻しが大きくなる）
+    for (const id of [1, 2] as PlayerId[]) {
+      const slot = this.slots[id];
+      slot.queue = [];
+      slot.primed = false;
+      slot.input = { ...EMPTY_INPUT };
+    }
     this.engine.startMatch(this.config, seed);
     this.broadcast({ t: "start", seed, config: this.config, tick: this.tick });
     this.sendSnapshot();
