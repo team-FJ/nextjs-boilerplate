@@ -6,6 +6,7 @@ import type {
   BandEnemy,
   BandEnemyId,
   Fighter,
+  FighterInput,
   PlayerId,
   VersusBullet,
   VersusHudSnapshot,
@@ -23,6 +24,24 @@ import type { ClientView, ViewFighter } from "./client";
  * フィールドが上下対称（上陣 46-268 / 中立 268-452 / 下陣 452-674、全体 720）なので、
  * y → V_H - y の変換で陣地がちょうど入れ替わる。
  */
+/**
+ * 手元の入力（画面基準）を、サーバーが扱う座標系（フィールド基準）へ直す。
+ *
+ * P2 の画面は 180 度回して描いている。回した画面で「上」を押すというのは、
+ * フィールドの座標では「下」へ動きたいという意味になる。ここで戻しておかないと、
+ * P2 だけ上下左右がすべて逆に動く。描画の反転と対になる処理なので、同じ場所に置いてある。
+ */
+export function toFieldInput(input: FighterInput, you: PlayerId): FighterInput {
+  if (you !== 2) return input;
+  return {
+    ...input,
+    left: input.right,
+    right: input.left,
+    up: input.down,
+    down: input.up,
+  };
+}
+
 export function buildRenderable(
   view: ClientView,
   you: PlayerId,

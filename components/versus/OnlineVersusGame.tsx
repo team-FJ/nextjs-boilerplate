@@ -8,7 +8,7 @@ import { loadSettings } from "@/lib/game/storage";
 import type { Settings } from "@/lib/game/types";
 import { V_H, V_W } from "@/lib/versus/constants";
 import { VersusInput } from "@/lib/versus/input";
-import { buildRenderable } from "@/lib/versus/net/viewAdapter";
+import { buildRenderable, toFieldInput } from "@/lib/versus/net/viewAdapter";
 import { VersusSession, type SessionRole } from "@/lib/versus/net/session";
 import type { TransportKind, TransportState } from "@/lib/versus/net/transport";
 import { VersusRenderer } from "@/lib/versus/render";
@@ -153,8 +153,11 @@ export default function OnlineVersusGame() {
 
       const session = sessionRef.current;
       let steps = 0;
+      // P2 は反転した画面で戦っているので、入力もフィールドの向きへ直してから渡す
+      const you = session?.client.you ?? 1;
+      const fieldInput = toFieldInput(input.get(1), you);
       while (acc >= FIXED_DT && steps < MAX_FRAME_SKIP) {
-        session?.update(FIXED_DT, input.get(1), now);
+        session?.update(FIXED_DT, fieldInput, now);
         acc -= FIXED_DT;
         steps += 1;
       }
