@@ -194,8 +194,8 @@ export default function InvaderGame() {
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#05060c] py-4">
       <div
-        className="relative w-full max-w-[480px] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(60,120,255,0.15)]"
-        style={{ aspectRatio: `${VIEW_W} / ${VIEW_H}`, maxHeight: "calc(100dvh - 2rem)" }}
+        className="relative w-full max-w-[480px] max-h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border border-white/10 shadow-[0_0_60px_rgba(60,120,255,0.15)] sm:max-h-[calc(100dvh-2rem)]"
+        style={{ aspectRatio: `${VIEW_W} / ${VIEW_H}` }}
       >
         <canvas ref={canvasRef} className="block h-full w-full touch-none bg-black" />
 
@@ -262,7 +262,7 @@ export default function InvaderGame() {
         ) : null}
       </div>
 
-      <TouchControls input={input} />
+      <TouchControls input={input} bombs={hud?.bombs ?? 0} />
 
       <p className="mt-3 px-4 text-center font-mono text-[10px] text-white/35">
         移動 ← → ↑ ↓ / WASD ・ ショット SPACE・Z ・ ボム X・SHIFT ・ ポーズ ESC・P
