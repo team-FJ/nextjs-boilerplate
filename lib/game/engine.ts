@@ -164,6 +164,8 @@ export class GameEngine {
   stageResult: StageResult | null = null;
   fps = 60;
 
+  /** 前フレームのボム入力。押しっぱなしで在庫が一気に消えるのを防ぐ */
+  private bombHeld = false;
   private idCounter = 1;
   private formOffsetX = 0;
   private formDir = 1;
@@ -455,9 +457,11 @@ export class GameEngine {
       p.fireCooldown = spec.interval * (this.powerups.rapid > 0 ? 0.55 : 1);
     }
 
-    if (input.bomb && p.bombs > 0 && p.invincible < RESPAWN_INVINCIBLE - 0.3) {
+    // 押した瞬間だけ反応させる（押しっぱなしでは連発しない）
+    if (input.bomb && !this.bombHeld && p.bombs > 0 && p.invincible < RESPAWN_INVINCIBLE - 0.3) {
       this.useBomb();
     }
+    this.bombHeld = input.bomb;
   }
 
   private updateOptions(dt: number) {

@@ -1,55 +1,23 @@
 "use client";
 
+import { useCallback } from "react";
+
+import { TouchPad, type PadAction } from "@/components/shared/TouchPad";
 import type { InputManager } from "@/lib/game/input";
 
-type Key = "left" | "right" | "up" | "down" | "fire" | "bomb";
-
-export function TouchControls({ input }: { input: InputManager }) {
-  const bind = (key: Key) => ({
-    onPointerDown: (e: React.PointerEvent) => {
-      e.preventDefault();
-      input.setVirtual(key, true);
-    },
-    onPointerUp: (e: React.PointerEvent) => {
-      e.preventDefault();
-      input.setVirtual(key, false);
-    },
-    onPointerLeave: () => input.setVirtual(key, false),
-    onPointerCancel: () => input.setVirtual(key, false),
-  });
-
-  const pad =
-    "flex h-14 w-14 select-none items-center justify-center rounded-xl border border-white/25 bg-white/10 text-lg font-bold text-white/80 active:bg-cyan-400/40";
-
-  return (
-    <div className="mt-3 flex w-full max-w-md touch-none items-center justify-between px-4 sm:hidden">
-      <div className="grid grid-cols-3 grid-rows-3 gap-1">
-        <span />
-        <button className={pad} {...bind("up")}>
-          ▲
-        </button>
-        <span />
-        <button className={pad} {...bind("left")}>
-          ◀
-        </button>
-        <span />
-        <button className={pad} {...bind("right")}>
-          ▶
-        </button>
-        <span />
-        <button className={pad} {...bind("down")}>
-          ▼
-        </button>
-        <span />
-      </div>
-      <div className="flex flex-col gap-2">
-        <button className={`${pad} h-16 w-16 border-cyan-300/50 bg-cyan-400/20`} {...bind("fire")}>
-          SHOT
-        </button>
-        <button className={`${pad} h-14 w-16 border-amber-300/50 bg-amber-400/20 text-sm`} {...bind("bomb")}>
-          BOMB
-        </button>
-      </div>
-    </div>
+/**
+ * 共通の操作パッドを1人用の入力に繋ぐ。
+ *
+ * 対戦モードと同じ「押した場所が原点になるスティック」方式。
+ * ボムは対戦の special ボタンに割り当てる。
+ * 1人用には撃つための残量という概念がないので、外周ゲージは出さない。
+ */
+export function TouchControls({ input, bombs = 0 }: { input: InputManager; bombs?: number }) {
+  const onAction = useCallback(
+    (action: PadAction, pressed: boolean) =>
+      input.setVirtual(action === "special" ? "bomb" : action, pressed),
+    [input],
   );
+
+  return <TouchPad onAction={onAction} bombs={bombs} />;
 }

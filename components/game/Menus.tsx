@@ -229,7 +229,7 @@ export function OptionsMenu({
             onChange={(difficulty) => onChange({ difficulty })}
           />
         </Row>
-        <Row label="操作方法" hint="キーボード：矢印/WASD ・ マウス：ポインタ追従">
+        <Row label="操作方法" hint="KEY：矢印/WASD と画面下のパッド ・ MOUSE：ポインタ追従（パッドは効きません）">
           <Choice
             value={settings.control}
             options={[
@@ -323,6 +323,11 @@ export function HowTo({ onBack }: { onBack: () => void }) {
         <div className="rounded border border-white/15 bg-white/5 p-2">ボム：X / SHIFT</div>
         <div className="rounded border border-white/15 bg-white/5 p-2">ポーズ：ESC / P</div>
       </div>
+
+      <p className="text-[11px] leading-relaxed text-white/60">
+        スマホは画面下のパッドで操作します。左側はどこを押しても、そこを中心にした
+        スティックになるので、親指を置いた場所から引っ張るだけで動かせます（対戦モードと同じ操作方法です）。
+      </p>
 
       <p className="text-[11px] leading-relaxed text-white/70">
         敵を全滅させるとウェーブが進み、最終ウェーブ後にボスが出現するステージもあります。
