@@ -1,3 +1,4 @@
+import { isTypingTarget } from "../shared/keyboard";
 import { EMPTY_INPUT, type FighterInput, type PlayerId } from "./types";
 
 type Action = keyof FighterInput;
@@ -75,6 +76,8 @@ export class VersusInput {
 
     const keyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
+      // 部屋コードなどを打っている最中はゲーム操作として横取りしない
+      if (isTypingTarget(e.target)) return;
       if (apply(e.code, true)) e.preventDefault();
       if (e.code === "Escape" || e.code === "KeyP") {
         e.preventDefault();
@@ -82,7 +85,8 @@ export class VersusInput {
       }
     };
     const keyUp = (e: KeyboardEvent) => {
-      if (apply(e.code, false)) e.preventDefault();
+      // 離したことは常に反映する（押している途中で入力欄へ移っても押しっぱなしにならないように）
+      if (apply(e.code, false) && !isTypingTarget(e.target)) e.preventDefault();
     };
     const blur = () => {
       this.p1 = { ...EMPTY_INPUT };

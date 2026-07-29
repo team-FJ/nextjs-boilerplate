@@ -323,9 +323,16 @@ export default function OnlineVersusGame() {
                 <div className="flex gap-2">
                   <input
                     value={inputCode}
-                    onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      setInputCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))
+                    }
                     placeholder="部屋コード"
                     maxLength={6}
+                    // スマホのキーボードが勝手に補正・小文字化しないようにする
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    autoComplete="off"
+                    spellCheck={false}
                     className="w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-center font-mono text-lg tracking-[0.3em] text-white placeholder:text-white/30"
                   />
                   <button className={btn} onClick={() => connect("guest", inputCode)} disabled={!inputCode}>

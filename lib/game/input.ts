@@ -1,3 +1,5 @@
+import { isTypingTarget } from "../shared/keyboard";
+
 export interface InputState {
   left: boolean;
   right: boolean;
@@ -48,6 +50,8 @@ export class InputManager {
     hooks: { onPause?: () => void } = {},
   ) {
     const keyDown = (e: KeyboardEvent) => {
+      // 文字入力欄に向けられたキーはゲーム操作として横取りしない
+      if (isTypingTarget(e.target)) return;
       const mapped = KEY_MAP[e.code];
       if (mapped) {
         e.preventDefault();
@@ -62,7 +66,8 @@ export class InputManager {
     const keyUp = (e: KeyboardEvent) => {
       const mapped = KEY_MAP[e.code];
       if (mapped) {
-        e.preventDefault();
+        // 離したことは常に反映する（押しっぱなし扱いで残らないように）
+        if (!isTypingTarget(e.target)) e.preventDefault();
         (this.state[mapped] as boolean) = false;
       }
     };
