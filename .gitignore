@@ -40,4 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .versus-server.mjs
+.breakout-sim.mjs
+.breakout-netsim.mjs
 dist/
