@@ -47,4 +47,8 @@ function ensureViewportMeta() {
 ensureViewportMeta();
 
 const el = document.getElementById("game-root");
-if (el) createRoot(el).render(<Standalone />);
+if (el) {
+  // 起動できたので、読み込み中の案内文を消す
+  document.getElementById("boot-message")?.remove();
+  createRoot(el).render(<Standalone />);
+}
