@@ -11,7 +11,8 @@
     "standalone": "node scripts/standalone/build.mjs",
     "build:static": "STATIC_EXPORT=1 next build",
     "breakout-sim": "esbuild scripts/breakout/sim.ts --bundle --platform=node --format=esm --outfile=.breakout-sim.mjs && node .breakout-sim.mjs",
-    "breakout-browser": "node scripts/breakout/browser-check.mjs"
+    "breakout-browser": "node scripts/breakout/browser-check.mjs",
+    "breakout-netsim": "esbuild scripts/breakout/netsim.ts --bundle --platform=node --format=esm --outfile=.breakout-netsim.mjs && node .breakout-netsim.mjs"
   },
   "dependencies": {
     "next": "16.0.4",

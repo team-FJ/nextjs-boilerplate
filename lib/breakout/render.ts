@@ -10,8 +10,22 @@ import {
   V_ZONE_TOP,
   W,
 } from "./constants";
-import type { BreakoutEngine } from "./engine";
-import type { Block, Paddle } from "./types";
+import type { Laser } from "./engine";
+import type { Ball, Block, ItemDrop, Mode, Paddle } from "./types";
+
+/**
+ * 描画に必要な形。エンジンそのものではなく構造で受け取る。
+ * 通信対戦では、スナップショットから組み立てた見た目用の状態をそのまま渡せる。
+ */
+export interface RenderState {
+  mode: Mode;
+  time: number;
+  blocks: Block[];
+  balls: Ball[];
+  paddles: Paddle[];
+  items: ItemDrop[];
+  lasers: Laser[];
+}
 
 const BLOCK_COLORS: Record<Block["kind"], [string, string]> = {
   normal: ["#3fb6ff", "#1d6ea8"],
@@ -33,7 +47,7 @@ export interface RenderOptions {
 
 export function render(
   ctx: CanvasRenderingContext2D,
-  engine: BreakoutEngine,
+  engine: RenderState,
   opts: RenderOptions,
 ) {
   ctx.save();
@@ -57,7 +71,7 @@ export function render(
   if (opts.scanline) drawScanline(ctx);
 }
 
-function drawBackground(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
+function drawBackground(ctx: CanvasRenderingContext2D, engine: RenderState) {
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, "#070b18");
   g.addColorStop(1, "#0d1226");
@@ -112,7 +126,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
   }
 }
 
-function drawBlocks(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
+function drawBlocks(ctx: CanvasRenderingContext2D, engine: RenderState) {
   for (const b of engine.blocks) {
     if (!b.alive) continue;
     const [light, dark] = BLOCK_COLORS[b.kind];
@@ -142,7 +156,7 @@ function drawBlocks(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
   }
 }
 
-function drawPaddles(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
+function drawPaddles(ctx: CanvasRenderingContext2D, engine: RenderState) {
   for (const p of engine.paddles) {
     const color = SIDE_COLOR[engine.mode === "coop" ? p.index : p.side];
     const x = p.x - p.w / 2;
@@ -180,7 +194,7 @@ function drawSkillFlash(ctx: CanvasRenderingContext2D, p: Paddle) {
   ctx.fillText(label, p.x, p.y + (p.side === 0 ? -18 : 26));
 }
 
-function drawBalls(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
+function drawBalls(ctx: CanvasRenderingContext2D, engine: RenderState) {
   for (const b of engine.balls) {
     // ロブ中とカーブ中は見た目で必ず区別する（飛び越えているのかが分からないと理不尽になる）
     if (b.lob > 0) {
@@ -219,7 +233,7 @@ function drawBalls(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
   }
 }
 
-function drawItems(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
+function drawItems(ctx: CanvasRenderingContext2D, engine: RenderState) {
   for (const it of engine.items) {
     const spec = ITEMS[it.kind];
     const size = 20;
@@ -236,7 +250,7 @@ function drawItems(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
   }
 }
 
-function drawLasers(ctx: CanvasRenderingContext2D, engine: BreakoutEngine) {
+function drawLasers(ctx: CanvasRenderingContext2D, engine: RenderState) {
   ctx.fillStyle = "#5ad2ff";
   for (const l of engine.lasers) ctx.fillRect(l.x - 1.5, l.y - 8, 3, 16);
 }

@@ -30,9 +30,15 @@ export class TabTransport implements Transport {
   private channel: BroadcastChannel;
   private me: "host" | "guest";
 
-  constructor(room: string, role: "host" | "guest", hooks: TransportHooks) {
+  /** prefix は作品ごとに変える。同じ名前だと別ゲームの部屋と混線する */
+  constructor(
+    room: string,
+    role: "host" | "guest",
+    hooks: TransportHooks,
+    prefix = "invader-versus",
+  ) {
     this.me = role;
-    this.channel = new BroadcastChannel(`invader-versus-${room}`);
+    this.channel = new BroadcastChannel(`${prefix}-${room}`);
     this.channel.onmessage = (event: MessageEvent) => {
       const data = event.data as { from: string; payload: unknown } | null;
       // 自分が送ったものは無視する
@@ -63,18 +69,29 @@ export class PeerTransport implements Transport {
   private queue: unknown[] = [];
   private closed = false;
 
-  constructor(room: string, role: "host" | "guest", hooks: TransportHooks) {
+  /** prefix は作品ごとに変える。PeerJS の ID は世界中で共有されるため、衝突すると繋がらない */
+  constructor(
+    room: string,
+    role: "host" | "guest",
+    hooks: TransportHooks,
+    prefix = "invader-assault",
+  ) {
     hooks.onState?.("connecting");
-    void this.setup(room, role, hooks);
+    void this.setup(room, role, hooks, prefix);
   }
 
-  private async setup(room: string, role: "host" | "guest", hooks: TransportHooks) {
+  private async setup(
+    room: string,
+    role: "host" | "guest",
+    hooks: TransportHooks,
+    prefix: string,
+  ) {
     try {
       const { default: Peer } = await import("peerjs");
       if (this.closed) return;
 
       // 部屋コードから相手の ID を決められるようにしておく
-      const hostId = `invader-assault-${room.toLowerCase()}`;
+      const hostId = `${prefix}-${room.toLowerCase()}`;
       const peer = role === "host" ? new Peer(hostId) : new Peer();
       this.peer = peer;
 

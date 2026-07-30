@@ -80,6 +80,40 @@ import { emptyInput } from "./types";
 
 export const DT = 1 / 60;
 
+/** ラグ補償で遡れる上限（ティック）。約200ms を超える申告は現在ティックで判定する */
+export const MAX_LAG_COMPENSATION = 12;
+
+/**
+ * パドルの移動。**エンジンとクライアントの自機予測で必ずこの関数を共有する。**
+ * どちらかに式を書き写すと、少しの違いが巻き戻しの原因になる。
+ */
+export function applyPaddleMotion(p: Paddle, input: PlayerInput, versus: boolean) {
+  // 妨害「リバース」は左右を入れ替えるだけ。画面反転処理とは必ず別系統にする
+  const reversed = (p.timers.reverse ?? 0) > 0;
+  const left = reversed ? input.right : input.left;
+  const right = reversed ? input.left : input.right;
+  const dirX = (right ? 1 : 0) - (left ? 1 : 0);
+
+  const speed = PADDLE_SPEED * ((p.timers.narrow ?? 0) > 0 ? 1.05 : 1);
+  if ((p.timers.ice ?? 0) > 0) {
+    // 滑る：目標速度へ徐々に近づけ、入力を離しても止まりにくい
+    const target = dirX * speed;
+    const d = target - p.vx;
+    const step = PADDLE_ICE_ACCEL * DT;
+    p.vx += clamp(d, -step, step);
+  } else {
+    p.vx = dirX * speed;
+  }
+  p.x = clamp(p.x + p.vx * DT, p.w / 2, W - p.w / 2);
+
+  if (versus) {
+    const zone = p.side === 0 ? V_ZONE_BOTTOM : V_ZONE_TOP;
+    const dirY = (input.down ? 1 : 0) - (input.up ? 1 : 0);
+    p.vy = dirY * speed * 0.8;
+    p.y = clamp(p.y + p.vy * DT, zone.top + p.h, zone.bottom - p.h);
+  }
+}
+
 export interface EngineConfig {
   mode: Mode;
   difficulty: Difficulty;
@@ -126,6 +160,8 @@ export class BreakoutEngine {
   winner: Side | null = null;
   /** 対戦：次にサーブする側 */
   serveTo: Side = 0;
+  /** 中立ブロック帯を組んだときのシード。シャッフルで変わるので通信対戦で同期する */
+  bandSeed = 0;
 
   events: GameEvent[] = [];
   private rng: Rng;
@@ -194,8 +230,18 @@ export class BreakoutEngine {
   }
 
   private setupField() {
-    this.blocks =
-      this.mode === "versus" ? buildBand(this.stage * 977 + 13) : buildStage(this.stage);
+    if (this.mode === "versus") {
+      this.bandSeed = this.stage * 977 + 13;
+      this.blocks = buildBand(this.bandSeed);
+    } else {
+      this.blocks = buildStage(this.stage);
+    }
+  }
+
+  /** 中立ブロック帯を組み直す（シャッフル・通信対戦の同期） */
+  rebuildBand(seed: number) {
+    this.bandSeed = seed;
+    this.blocks = buildBand(seed);
   }
 
   /**
@@ -285,30 +331,7 @@ export class BreakoutEngine {
   }
 
   private movePaddle(p: Paddle, input: PlayerInput) {
-    // 妨害「リバース」は左右を入れ替えるだけ。画面反転処理とは必ず別系統にする
-    const reversed = (p.timers.reverse ?? 0) > 0;
-    const left = reversed ? input.right : input.left;
-    const right = reversed ? input.left : input.right;
-    const dirX = (right ? 1 : 0) - (left ? 1 : 0);
-
-    const speed = PADDLE_SPEED * ((p.timers.narrow ?? 0) > 0 ? 1.05 : 1);
-    if ((p.timers.ice ?? 0) > 0) {
-      // 滑る：目標速度へ徐々に近づけ、入力を離しても止まりにくい
-      const target = dirX * speed;
-      const d = target - p.vx;
-      const step = PADDLE_ICE_ACCEL * DT;
-      p.vx += clamp(d, -step, step);
-    } else {
-      p.vx = dirX * speed;
-    }
-    p.x = clamp(p.x + p.vx * DT, p.w / 2, W - p.w / 2);
-
-    const zone = this.zoneFor(p);
-    if (zone) {
-      const dirY = (input.down ? 1 : 0) - (input.up ? 1 : 0);
-      p.vy = dirY * speed * 0.8;
-      p.y = clamp(p.y + p.vy * DT, zone.top + p.h, zone.bottom - p.h);
-    }
+    applyPaddleMotion(p, input, this.mode === "versus");
 
     // 吸着中のボールを連れて動く
     for (const b of this.balls) {
@@ -378,6 +401,14 @@ export class BreakoutEngine {
     const prev = this.prevInputs[p.index] ?? emptyInput();
     const pressed = input.fire && !prev.fire;
     if (!pressed) return;
+    /**
+     * 通信対戦のラグ補償。
+     *
+     * 入力は片道の遅延ぶん遅れて届く。受信した瞬間の盤面で判定すると、
+     * 参加側だけがその遅延ぶん不利になり、タイミング技が成立しなくなる。
+     * クライアントが載せてきた「押したときのティック」まで遡って判定する。
+     */
+    const pressTick = this.tick - clamp(input.pressAge ?? 0, 0, MAX_LAG_COMPENSATION);
 
     // 吸着中なら発射が最優先
     const stuckBall = this.balls.find((b) => b.stuck === p.index);
@@ -410,9 +441,16 @@ export class BreakoutEngine {
     if (p.stun > 0) return;
     if (p.gauge < this.skillCost(angle.sin)) return;
 
-    // 後入力：直前に触れたばかりなら遡って適用する（±window の「後ろ側」）
+    /**
+     * すでに接触が済んでいるなら、判定窓の内側にある限り遡って適用する。
+     *
+     * ここは **|pressTick - hitTick| <= window** でなければならない。
+     * 「押したのは接触より前だが、通信の遅れでサーバーに届いたのは接触の後」という入力が
+     * 毎回起きるため、pressTick >= hitTick に限ると先行入力にも後入力にも拾われず、
+     * 参加側だけ空振りになる（実測で成立率が 53% まで落ちた）。
+     */
     const window = DIFFICULTY[this.difficulty].window;
-    if (window !== null && this.tick - p.hitTick <= window) {
+    if (window !== null && Math.abs(pressTick - p.hitTick) <= window) {
       const ball = this.balls.find((b) => b.id === p.hitBall);
       if (ball) {
         this.applySkill(p, ball, angle);
@@ -420,7 +458,7 @@ export class BreakoutEngine {
         return;
       }
     }
-    p.pending = { ...angle, tick: this.tick };
+    p.pending = { ...angle, tick: pressTick };
   }
 
   // ---------------------------------------------------------------- skills
@@ -909,7 +947,7 @@ export class BreakoutEngine {
         break;
       }
       case "shuffle":
-        this.blocks = buildBand(this.tick * 31 + 7);
+        this.rebuildBand(this.tick * 31 + 7);
         break;
       case "wall":
         p.wall = 3;

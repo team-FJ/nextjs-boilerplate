@@ -22,6 +22,11 @@ export interface PlayerInput {
    * 技の打ち出し角 θ を連続値で取るために使う。null ならキー入力の8方向から求める。
    */
   analog: { x: number; y: number } | null;
+  /**
+   * この入力が「何ティック前に押されたか」。通信対戦のラグ補償で使う。
+   * ローカルでは常に 0（＝いま押した）。
+   */
+  pressAge?: number;
 }
 
 export function emptyInput(): PlayerInput {
@@ -37,6 +42,7 @@ export function cloneInput(input: PlayerInput): PlayerInput {
     down: input.down,
     fire: input.fire,
     analog: input.analog ? { x: input.analog.x, y: input.analog.y } : null,
+    pressAge: input.pressAge,
   };
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CPU_LEVELS, CpuPlayer, type CpuLevel } from "@/lib/breakout/ai";
@@ -338,7 +339,7 @@ export default function BreakoutGame() {
             もう片方が<b className="text-white/80">スマッシュで叩く</b>と連携チェインで倍率が伸びる。
           </p>
           <Button onClick={() => start("coop", { split: true })}>1台で2人（P1=WASD / P2=矢印）</Button>
-          <Button variant="disabled">通信で2台（準備中）</Button>
+          <LinkButton href="/breakout/online">通信で2台</LinkButton>
           <Button variant="ghost" onClick={() => setScreen("title")}>
             もどる
           </Button>
@@ -359,7 +360,7 @@ export default function BreakoutGame() {
             </Button>
           ))}
           <Button onClick={() => start("versus", { split: true })}>1台で2人（P1=WASD / P2=矢印）</Button>
-          <Button variant="disabled">通信で2台（準備中）</Button>
+          <LinkButton href="/breakout/online">通信で2台</LinkButton>
           <Button variant="ghost" onClick={() => setScreen("title")}>
             もどる
           </Button>
@@ -471,6 +472,18 @@ function Button({
     >
       {children}
     </button>
+  );
+}
+
+/** 別ページへ渡す。basePath は next/link が付けてくれるので絶対パスで書く */
+function LinkButton({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-lg border border-cyan-300/50 bg-cyan-400/15 px-4 py-3 text-center font-mono text-sm tracking-wide text-cyan-100 active:bg-cyan-400/30"
+    >
+      {children}
+    </Link>
   );
 }
 
