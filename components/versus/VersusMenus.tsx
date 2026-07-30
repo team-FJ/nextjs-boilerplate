@@ -68,9 +68,13 @@ export function VersusMenu({
     <div className={`${panel} gap-3 p-4`}>
       <div className="text-center">
         <div className="font-mono text-[10px] tracking-[0.4em] text-rose-300/80">HEAD TO HEAD</div>
-        <h1 className="mt-1 bg-gradient-to-r from-sky-300 via-white to-rose-300 bg-clip-text text-3xl font-black text-transparent">
-          VERSUS BATTLE
-        </h1>
+        <div className="inline-block">
+          <h1 className="mt-1 bg-gradient-to-r from-sky-300 via-white to-rose-300 bg-clip-text text-3xl font-black text-transparent">
+            VERSUS BATTLE
+          </h1>
+          {/* 制作者名。タイトルの右下に署名のように置く */}
+          <div className="text-right font-mono text-[10px] tracking-[0.2em] text-rose-200/70">fujiki games</div>
+        </div>
         <p className="mt-1 font-mono text-[10px] text-white/45">
           上下に分かれた陣地で撃ち合い、中立ゾーンの敵を倒して強化する
         </p>

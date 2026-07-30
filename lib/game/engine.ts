@@ -1191,7 +1191,7 @@ export class GameEngine {
         break;
       }
       case "minions": {
-        const types: EnemyTypeId[] = ["squid", "crab", "kamikaze", "gunner"];
+        const types: EnemyTypeId[] = ["scout", "glider", "kamikaze", "gunner"];
         for (let i = 0; i < 3; i++) {
           const t = pick(types);
           const def = ENEMY_DEFS[t];
