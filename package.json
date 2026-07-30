@@ -9,7 +9,9 @@
     "lint": "eslint",
     "versus-server": "esbuild server/versus-server.ts --bundle --platform=node --format=esm --outfile=.versus-server.mjs --external:ws && node .versus-server.mjs",
     "standalone": "node scripts/standalone/build.mjs",
-    "build:static": "STATIC_EXPORT=1 next build"
+    "build:static": "STATIC_EXPORT=1 next build",
+    "breakout-sim": "esbuild scripts/breakout/sim.ts --bundle --platform=node --format=esm --outfile=.breakout-sim.mjs && node .breakout-sim.mjs",
+    "breakout-browser": "node scripts/breakout/browser-check.mjs"
   },
   "dependencies": {
     "next": "16.0.4",
@@ -27,6 +29,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^9",
     "eslint-config-next": "16.0.4",
+    "playwright": "^1.62.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "ws": "^8.21.1"
