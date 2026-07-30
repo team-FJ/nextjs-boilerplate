@@ -1,8 +1,9 @@
-# BLOCK RALLY（仮題）仕様書 v0.1
+# SPIN RALLY 仕様書 v1.0
 
 ブラウザ用ブロック崩し。1人／協力／対戦の3モードを持ち、**スティックの向きとショットを組み合わせた「技」**（スマッシュ・カーブ・ボレー）で、左右移動だけの従来のブロック崩しから踏み出すことを狙う。
 
-- 仮題は `BLOCK RALLY`。既存の名作を思わせる名前・絵柄は使わない（→ Notion「気をつけていること」）。正式名は実装着手前に確定する。
+- タイトルは **SPIN RALLY**。技の中心であるカーブ（spin）と、対戦・協力の打ち合い（rally）から取った。
+  既存の名作を思わせる名前・絵柄は使わない（→ Notion「気をつけていること」）。
 - 土台は INVADER ASSAULT と同じ構成を踏襲し、**リポジトリは新規に分ける**（公開URLも別になる）。共通部品は移植する。
 
 ---
@@ -424,9 +425,57 @@ HUD：スコア・ライフ（対戦は耐久と得点）・技ゲージ・残�
 
 ---
 
-## 11. 未決事項
+## 11. 公開の手順
 
-- 正式タイトルとドット絵の方向性（既存の名作を思わせないもの）
+### 11.1 いまの状態
+
+いまはこのリポジトリ（`team-FJ/nextjs-boilerplate`）の作業ブランチにあり、`/breakout` と `/breakout/online` で動く。
+
+- **GitHub Actions の静的書き出しは成功している**（`out/breakout/` と `out/breakout/online/` が出る）。
+- **デプロイだけ失敗する。** `github-pages` 環境が既定ブランチからのデプロイしか許可していないため。
+  `main` に入った時点で公開される（ワークフロー自体の直しは不要）。
+
+### 11.2 いますぐ実機で触る方法
+
+```
+npm run spin-rally-standalone   →  dist/spin-rally.html
+```
+
+1ファイルの HTML。**通信対戦もそのまま入っている**——進行役の端末のブラウザが権威サーバーを兼ねる作りなので、
+置き場所（サーバー）が要らない。ファイルをスマホへ送って開くだけで遊べる。
+
+### 11.3 リポジトリを分けるとき
+
+移すのはこの一式だけ。相互依存は「共通部品」の3ファイルしかない。
+
+| 移すもの | 移し先 |
+| --- | --- |
+| `lib/breakout/**` | 新リポジトリの `lib/game/**`（名前は任意） |
+| `components/breakout/**` | `components/**` |
+| `app/breakout/page.tsx` | `app/page.tsx`（トップに置く） |
+| `app/breakout/online/page.tsx` | `app/online/page.tsx` |
+| `scripts/breakout/**` | `scripts/**` |
+| `docs/breakout-spec.md` | `docs/spec.md` |
+| `.github/workflows/pages.yml` | そのまま |
+
+INVADER 側から借りている共通部品は3つだけなので、一緒にコピーする。
+
+- `lib/shared/keyboard.ts`（文字入力欄の判定）
+- `lib/game/rng.ts` / `lib/game/audio.ts`
+- `lib/versus/net/transport.ts`（P2P と別タブの経路。**prefix を作品ごとに変える引数を足してある**）
+
+移したあとにやること：
+
+- [ ] `next/link` の絶対パス（`/breakout`, `/breakout/online`）をトップ基準に直す
+- [ ] `package.json` のスクリプト名から `breakout-` を外す
+- [ ] Settings → Pages → Source を「GitHub Actions」にする
+- [ ] `npm run breakout-sim` / `breakout-netsim` / `breakout-browser` が通ることを確認する
+
+---
+
+## 12. 未決事項
+
+- ドット絵の方向性（タイトルは SPIN RALLY で確定）
 - 新リポジトリの名前と、公開URL（GitHub Pages の有効化が必要）
 - **P2P の実ネットワーク検証**（自動テストは同一ブラウザの別タブのみ。回線によっては繋がらない可能性がある）
 - **iPhone Safari の実機検証**（自動テストは Chromium のみ）

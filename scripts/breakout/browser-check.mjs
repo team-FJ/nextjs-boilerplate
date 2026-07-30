@@ -1,5 +1,5 @@
 /**
- * BLOCK RALLY の実ブラウザ検証。
+ * SPIN RALLY の実ブラウザ検証。
  *
  *   npm run build && npm run breakout-browser
  *
@@ -265,6 +265,32 @@ try {
   );
 
   check("通信中に JavaScript エラーが出ていない", netErrors.length === 0, netErrors.slice(0, 2).join(" / "));
+
+  // ---- 単体HTML版（あれば）------------------------------------------------
+  const standalone = join(process.cwd(), "dist", "spin-rally.html");
+  if (existsSync(standalone)) {
+    const solo = await context.newPage();
+    const soloErrors = [];
+    solo.setDefaultTimeout(15_000);
+    solo.on("pageerror", (e) => soloErrors.push(String(e)));
+    await solo.goto(`file://${standalone}`, { waitUntil: "domcontentloaded" });
+    await solo.getByRole("button", { name: "1人で遊ぶ" }).click();
+    await solo.getByRole("button", { name: "1", exact: true }).click();
+    await solo.waitForSelector("canvas");
+    await sleep(1200);
+    const s0 = await solo.evaluate(measurePaddle);
+    await solo.keyboard.down("ArrowLeft");
+    await sleep(400);
+    await solo.keyboard.up("ArrowLeft");
+    await sleep(120);
+    const s1 = await solo.evaluate(measurePaddle);
+    check(
+      "単体HTML版が開くだけで動く",
+      typeof s0 === "number" && typeof s1 === "number" && s1 < s0 - 30,
+      `${fmt(s0)} → ${fmt(s1)}`,
+    );
+    check("単体HTML版で JavaScript エラーが出ていない", soloErrors.length === 0, soloErrors.slice(0, 2).join(" / "));
+  }
 
   await browser.close();
 } catch (e) {

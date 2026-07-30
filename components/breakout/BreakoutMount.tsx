@@ -7,7 +7,7 @@ const BreakoutGame = dynamic(() => import("./BreakoutGame"), {
   ssr: false,
   loading: () => (
     <div className="flex min-h-dvh w-full items-center justify-center bg-[#05060c] font-mono text-xs tracking-widest text-cyan-300/70">
-      LOADING BLOCK RALLY...
+      LOADING SPIN RALLY...
     </div>
   ),
 });

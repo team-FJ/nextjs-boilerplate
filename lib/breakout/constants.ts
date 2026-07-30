@@ -1,7 +1,7 @@
 import type { Difficulty, ItemGroup, ItemKind, Settings } from "./types";
 
 /**
- * BLOCK RALLY のバランス定数。仕様書 docs/breakout-spec.md と対応させること。
+ * SPIN RALLY のバランス定数。仕様書 docs/breakout-spec.md と対応させること。
  *
  * 設計の要：技は「打ち出し角 θ」ひとつで決まる連続体。
  *   速度倍率 = SPEED_BASE + SPEED_SWING * sinθ   （真上 1.55 / 真横 1.20 / 真下 0.85）

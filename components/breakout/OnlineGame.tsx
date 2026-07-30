@@ -203,7 +203,7 @@ export default function OnlineGame() {
         <header className="text-center">
           <p className="font-mono text-[10px] tracking-[0.4em] text-white/40">fujiki games</p>
           <h1 className="font-mono text-2xl font-bold tracking-[0.2em] text-cyan-300">
-            BLOCK RALLY 通信
+            SPIN RALLY 通信
           </h1>
           <p className="mt-1 font-mono text-[11px] text-white/50">
             進行役の端末がゲームサーバーを兼ねるので、サーバーは要りません

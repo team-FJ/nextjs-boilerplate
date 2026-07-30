@@ -1,5 +1,5 @@
 /**
- * BLOCK RALLY のヘッドレス検証。
+ * SPIN RALLY のヘッドレス検証。
  *
  * ブラウザも実機も使わずに、バランスと物理を数値で確かめる。
  *   npm run breakout-sim
@@ -288,7 +288,7 @@ function soloRun(difficulty: Difficulty, stages: number) {
 
 // ---------------------------------------------------------------- 実行
 
-line("BLOCK RALLY ヘッドレス検証");
+line("SPIN RALLY ヘッドレス検証");
 line(`固定タイムステップ ${(1 / DT).toFixed(0)}Hz / 最低速度 ${BALL_MIN_SPEED}px/s`);
 line(`CPU レベル: ${Object.entries(CPU_LEVELS).map(([k, v]) => `${k}=${v.label}`).join(" ")}`);
 

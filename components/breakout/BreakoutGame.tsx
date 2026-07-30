@@ -279,7 +279,7 @@ export default function BreakoutGame() {
     <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-[#05060c] p-6 text-white">
       <header className="text-center">
         <p className="font-mono text-[10px] tracking-[0.4em] text-white/40">fujiki games</p>
-        <h1 className="font-mono text-3xl font-bold tracking-[0.2em] text-cyan-300">BLOCK RALLY</h1>
+        <h1 className="font-mono text-3xl font-bold tracking-[0.2em] text-cyan-300">SPIN RALLY</h1>
         <p className="mt-1 font-mono text-[11px] text-white/50">
           上でスマッシュ・横でカーブ・下でボレー
         </p>

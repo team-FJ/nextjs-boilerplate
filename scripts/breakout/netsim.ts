@@ -1,5 +1,5 @@
 /**
- * BLOCK RALLY 通信対戦のヘッドレス検証。
+ * SPIN RALLY 通信対戦のヘッドレス検証。
  *
  *   npm run breakout-netsim
  *
@@ -403,7 +403,7 @@ function coopCheck(): boolean {
 
 // ---------------------------------------------------------------- 実行
 
-line("BLOCK RALLY 通信対戦のヘッドレス検証");
+line("SPIN RALLY 通信対戦のヘッドレス検証");
 line("サーバー権威＋クライアント予測＋巻き戻し補正 / ボールは補間せず外挿 / 技はラグ補償");
 
 const directionOk = directionCheck();

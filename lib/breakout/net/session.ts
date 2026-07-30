@@ -11,8 +11,8 @@ import { BreakoutRoom } from "./room";
 import type { ClientMessage, ServerMessage } from "./protocol";
 
 /** 部屋の名前空間。INVADER と混線しないよう作品ごとに変える */
-const TAB_PREFIX = "blockrally-versus";
-const PEER_PREFIX = "blockrally-net";
+const TAB_PREFIX = "spinrally-versus";
+const PEER_PREFIX = "spinrally-net";
 
 export interface NetSession {
   client: BreakoutClient;

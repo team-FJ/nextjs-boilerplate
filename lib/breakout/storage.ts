@@ -1,8 +1,8 @@
 import { DEFAULT_SETTINGS } from "./constants";
 import type { Progress, Settings } from "./types";
 
-const SETTINGS_KEY = "blockrally.settings.v1";
-const PROGRESS_KEY = "blockrally.progress.v1";
+const SETTINGS_KEY = "spinrally.settings.v1";
+const PROGRESS_KEY = "spinrally.progress.v1";
 
 export const DEFAULT_PROGRESS: Progress = {
   unlockedStage: 1,

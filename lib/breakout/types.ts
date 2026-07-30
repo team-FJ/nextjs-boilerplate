@@ -1,5 +1,5 @@
 /**
- * BLOCK RALLY の型定義。
+ * SPIN RALLY の型定義。
  *
  * 描画とReactから独立させ、Node上でヘッドレスに動かせる状態を保つこと。
  * ここに DOM / React の型を持ち込まない。
