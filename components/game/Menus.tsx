@@ -32,11 +32,17 @@ export function TitleScreen({
     <div className={`${panel} items-center justify-center gap-6 px-6 text-center`}>
       <div>
         <div className="font-mono text-xs tracking-[0.5em] text-cyan-300/80">SPACE SHOOTER</div>
-        <h1 className="mt-2 bg-gradient-to-b from-white to-cyan-300 bg-clip-text text-5xl font-black tracking-tight text-transparent">
-          INVADER
-          <br />
-          ASSAULT
-        </h1>
+        <div className="inline-block">
+          <h1 className="mt-2 bg-gradient-to-b from-white to-cyan-300 bg-clip-text text-5xl font-black tracking-tight text-transparent">
+            INVADER
+            <br />
+            ASSAULT
+          </h1>
+          {/* 制作者名。タイトルの右下に署名のように置く */}
+          <div className="-mt-0.5 text-right font-mono text-[11px] tracking-[0.2em] text-cyan-200/70">
+            fujiki games
+          </div>
+        </div>
         <div className="mt-2 font-mono text-[11px] text-white/50">全30ステージ / 18種のアイテム / 6体のボス</div>
       </div>
 

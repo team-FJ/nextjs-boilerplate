@@ -34,9 +34,9 @@ export type TimedPowerupKind =
   | "invincible";
 
 export type EnemyTypeId =
-  | "squid"
-  | "crab"
-  | "octopus"
+  | "scout"
+  | "glider"
+  | "hulk"
   | "gunner"
   | "bomber"
   | "elite"

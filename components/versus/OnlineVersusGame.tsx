@@ -265,9 +265,13 @@ export default function OnlineVersusGame() {
           <div className="absolute inset-0 z-20 flex flex-col gap-3 overflow-y-auto bg-black/88 p-4 text-white backdrop-blur-sm">
             <div className="text-center">
               <div className="font-mono text-[10px] tracking-[0.4em] text-cyan-300/80">ONLINE</div>
-              <h1 className="mt-1 bg-gradient-to-r from-sky-300 via-white to-rose-300 bg-clip-text text-2xl font-black text-transparent">
-                2台で対戦
-              </h1>
+              <div className="inline-block">
+                <h1 className="mt-1 bg-gradient-to-r from-sky-300 via-white to-rose-300 bg-clip-text text-2xl font-black text-transparent">
+                  2台で対戦
+                </h1>
+                {/* 制作者名。タイトルの右下に署名のように置く */}
+                <div className="text-right font-mono text-[10px] tracking-[0.2em] text-cyan-200/70">fujiki games</div>
+              </div>
             </div>
 
             {winner !== null && hud && (

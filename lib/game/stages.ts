@@ -36,41 +36,41 @@ export const STAGES: StageDef[] = [
     "初接触",
     "space",
     [
-      { formation: "grid", rows: 2, cols: 6, types: ["squid"], speed: 0.7, fireRate: 0.6 },
-      { formation: "grid", rows: 3, cols: 7, types: ["squid", "crab"], speed: 0.8, fireRate: 0.7 },
+      { formation: "grid", rows: 2, cols: 6, types: ["scout"], speed: 0.7, fireRate: 0.6 },
+      { formation: "grid", rows: 3, cols: 7, types: ["scout", "glider"], speed: 0.8, fireRate: 0.7 },
     ],
     { itemChance: 0.24, hint: "Pアイテムで武装を強化しよう" },
   ),
   stage("包囲網", "space", [
-    { formation: "vshape", rows: 3, cols: 7, types: ["crab", "squid"], speed: 0.9 },
-    { formation: "grid", rows: 3, cols: 8, types: ["crab", "octopus"], speed: 0.95 },
+    { formation: "vshape", rows: 3, cols: 7, types: ["glider", "scout"], speed: 0.9 },
+    { formation: "grid", rows: 3, cols: 8, types: ["glider", "hulk"], speed: 0.95 },
   ], { hint: "Oアイテムのオプションは分身のように追従する" }),
   stage("突撃隊", "nebula", [
-    { formation: "wedge", rows: 3, cols: 7, types: ["kamikaze", "squid"], diveRate: 1.4 },
-    { formation: "grid", rows: 3, cols: 8, types: ["crab", "gunner"], speed: 1 },
+    { formation: "wedge", rows: 3, cols: 7, types: ["kamikaze", "scout"], diveRate: 1.4 },
+    { formation: "grid", rows: 3, cols: 8, types: ["glider", "gunner"], speed: 1 },
   ], { hazard: "meteor", hint: "カミカゼは編隊を離れて突っ込んでくる" }),
   stage("砲列", "nebula", [
-    { formation: "columns", rows: 4, cols: 7, types: ["gunner", "crab", "squid"], fireRate: 1.15 },
-    { formation: "checker", rows: 4, cols: 8, types: ["gunner", "octopus"], fireRate: 1.2 },
+    { formation: "columns", rows: 4, cols: 7, types: ["gunner", "glider", "scout"], fireRate: 1.15 },
+    { formation: "checker", rows: 4, cols: 8, types: ["gunner", "hulk"], fireRate: 1.2 },
   ], { hint: "ガンナーは自機を狙って撃つ" }),
   stage("母艦強襲", "space", [
-    { formation: "grid", rows: 2, cols: 8, types: ["crab", "squid"], speed: 1 },
+    { formation: "grid", rows: 2, cols: 8, types: ["glider", "scout"], speed: 1 },
   ], { boss: "carrier", itemChance: 0.3, hint: "ボスの砲台を先に潰すと弾幕が薄くなる" }),
 
   stage("氷晶回廊", "ice", [
-    { formation: "diamond", rows: 4, cols: 8, types: ["squid", "crab", "ghost"], speed: 1.05 },
+    { formation: "diamond", rows: 4, cols: 8, types: ["scout", "glider", "ghost"], speed: 1.05 },
     { formation: "grid", rows: 4, cols: 8, types: ["ghost", "gunner"], speed: 1.05, fireRate: 1.1 },
   ], { hazard: "debris", hint: "ゴーストは一瞬透明化して弾をすり抜ける" }),
   stage("爆撃圏", "ice", [
-    { formation: "arc", rows: 3, cols: 8, types: ["bomber", "crab"], fireRate: 1.1 },
-    { formation: "grid", rows: 4, cols: 8, types: ["bomber", "gunner", "squid"], fireRate: 1.15 },
+    { formation: "arc", rows: 3, cols: 8, types: ["bomber", "glider"], fireRate: 1.1 },
+    { formation: "grid", rows: 4, cols: 8, types: ["bomber", "gunner", "scout"], fireRate: 1.15 },
   ], { hint: "ボマーの爆弾は着弾時に破片が散る" }),
   stage("分裂体", "toxic", [
     { formation: "ring", rows: 3, cols: 8, types: ["splitter"], speed: 1.05 },
-    { formation: "grid", rows: 4, cols: 8, types: ["splitter", "crab", "gunner"] },
+    { formation: "grid", rows: 4, cols: 8, types: ["splitter", "glider", "gunner"] },
   ], { hazard: "nebula", hint: "スプリッタは倒すと小型機に分裂する" }),
   stage("要塞前線", "toxic", [
-    { formation: "checker", rows: 4, cols: 8, types: ["turret", "crab"], fireRate: 1.2 },
+    { formation: "checker", rows: 4, cols: 8, types: ["turret", "glider"], fireRate: 1.2 },
     { formation: "grid", rows: 4, cols: 8, types: ["turret", "tank", "gunner"], speed: 0.9 },
   ], { hint: "タレットは高速レーザーを撃つ。遮蔽を意識して" }),
   stage("多頭艦襲来", "toxic", [
@@ -78,7 +78,7 @@ export const STAGES: StageDef[] = [
   ], { boss: "hydra", itemChance: 0.3, hint: "3つの頭を個別に破壊できる" }),
 
   stage("溶融帯", "magma", [
-    { formation: "vshape", rows: 4, cols: 8, types: ["elite", "crab"], speed: 1.1, diveRate: 1.2 },
+    { formation: "vshape", rows: 4, cols: 8, types: ["elite", "glider"], speed: 1.1, diveRate: 1.2 },
     { formation: "grid", rows: 4, cols: 9, types: ["elite", "gunner", "bomber"], fireRate: 1.15 },
   ], { hazard: "meteor", hint: "エリートは拡散弾を撒きながら突撃する" }),
   stage("鉄壁陣", "magma", [
@@ -86,7 +86,7 @@ export const STAGES: StageDef[] = [
     { formation: "wedge", rows: 4, cols: 8, types: ["tank", "turret"], speed: 0.9, fireRate: 1.2 },
   ], { hint: "ヒーラーが仲間を回復する。先に潰せ" }),
   stage("機雷原", "void", [
-    { formation: "scatter", rows: 4, cols: 9, types: ["mine", "squid"], speed: 1.15 },
+    { formation: "scatter", rows: 4, cols: 9, types: ["mine", "scout"], speed: 1.15 },
     { formation: "cross", rows: 4, cols: 9, types: ["mine", "kamikaze", "gunner"], diveRate: 1.3 },
   ], { hazard: "debris", hint: "機雷は接触ダメージ大。撃ち抜こう" }),
   stage("亡霊艦隊", "void", [

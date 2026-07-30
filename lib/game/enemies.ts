@@ -24,156 +24,156 @@ export interface EnemyDef {
 }
 
 // ドット絵： X = メインカラー / O = アクセント / # = 影 / . = 透明
-const SPR_SQUID = [
-  "...XX...",
-  "..XXXX..",
-  ".XXXXXX.",
-  "XXOXXOXX",
+const SPR_SCOUT = [
   "XXXXXXXX",
-  ".X.XX.X.",
-  "X#....#X",
-  ".X....X.",
+  "XXXXXXXX",
+  ".XOOOOX.",
+  ".XXXXXX.",
+  "..XXXX..",
+  "..XXXX..",
+  "...XX...",
+  "...XX...",
 ];
 
-const SPR_CRAB = [
-  "..X.....X..",
-  "...X...X...",
+const SPR_GLIDER = [
+  "XX.......XX",
+  ".XXX...XXX.",
   "..XXXXXXX..",
-  ".XXOXXXOXX.",
-  "XXXXXXXXXXX",
-  "X.XXXXXXX.X",
-  "X.X.....X.X",
-  "...XX.XX...",
+  ".XXXOOOXXX.",
+  "XXXXOOOXXXX",
+  ".XXXXXXXXX.",
+  "...XXXXX...",
+  "....XXX....",
 ];
 
-const SPR_OCTOPUS = [
-  "....XXXX....",
+const SPR_HULK = [
+  "..XXXXXXXX..",
   ".XXXXXXXXXX.",
   "XXXXXXXXXXXX",
-  "XXXOOXXOOXXX",
+  "XX########XX",
+  "XXOOOOOOOOXX",
   "XXXXXXXXXXXX",
-  "...XX..XX...",
-  "..XX.XX.XX..",
-  "X#........#X",
+  ".XXXXXXXXXX.",
+  "..XXXXXXXX..",
 ];
 
 const SPR_GUNNER = [
-  "X.........X",
-  "X.XXXXXXX.X",
-  "XXXOXXXOXXX",
+  "...XXXXX...",
+  "..XXXXXXX..",
+  ".XXXOOOXXX.",
   "XXXXXXXXXXX",
-  ".XXXXXXXXX.",
-  "..X.XXX.X..",
-  ".O.XXXXX.O.",
-  "...O...O...",
+  "XXXXXXXXXXX",
+  "XX#XXXXX#XX",
+  "XO.......OX",
+  "XO.......OX",
 ];
 
 const SPR_BOMBER = [
-  "..XXXXXXXX..",
   ".XXXXXXXXXX.",
-  "XXOXXXXXXOXX",
   "XXXXXXXXXXXX",
-  "XX#XXXXXX#XX",
+  "XXXXOOOOXXXX",
+  "XXXXXXXXXXXX",
+  "X##XXXXXX##X",
   ".XXXXXXXXXX.",
-  "..XX.OO.XX..",
-  "....OOOO....",
+  "..XX....XX..",
+  "...OO..OO...",
 ];
 
 const SPR_ELITE = [
   ".....XX.....",
   "....XXXX....",
-  "...XXOOXX...",
-  "..XXXXXXXX..",
+  "...XXXXXX...",
+  "..XXXOOXXX..",
+  ".XXXXOOXXXX.",
+  "XXXXXXXXXXXX",
   ".XXXXXXXXXX.",
-  "XXXX.XX.XXXX",
-  "XX.XXXXXX.XX",
-  "X...XOOX...X",
-  "....XXXX....",
-  "...X....X...",
+  "..XX.XX.XX..",
+  "...X.XX.X...",
+  ".....XX.....",
 ];
 
 const SPR_TANK = [
-  "XX........XX",
+  ".XXXXXXXXXX.",
+  "XXXXXXXXXXXX",
+  "XX########XX",
+  "XXOOOOOOOOXX",
+  "XX########XX",
   "XXXXXXXXXXXX",
   "XXXXXXXXXXXX",
-  "XX#OOXXOO#XX",
-  "XXXXXXXXXXXX",
-  "XXXXXXXXXXXX",
-  "XX.XXXXXX.XX",
-  "X..X.OO.X..X",
-  "....XXXX....",
+  ".XX#XXXX#XX.",
+  "..XXXXXXXX..",
 ];
 
 const SPR_GHOST = [
-  "...XXXX...",
   "..XXXXXX..",
-  ".XXOXXOXX.",
-  ".XXXXXXXX.",
-  ".XXXXXXXX.",
-  ".XXXXXXXX.",
-  ".X.X..X.X.",
-  "..........",
+  ".X......X.",
+  "X..XXXX..X",
+  "X.XOOOOX.X",
+  "X.XOOOOX.X",
+  "X..XXXX..X",
+  ".X......X.",
+  "..XXXXXX..",
 ];
 
 const SPR_KAMIKAZE = [
-  "....XX....",
-  "...XXXX...",
-  "...XOOX...",
+  "..X....X..",
+  "..XX..XX..",
   "..XXXXXX..",
-  ".XX.XX.XX.",
-  "XX..XX..XX",
-  "X...XX...X",
-  "....OO....",
+  "..XXOOXX..",
+  "...XXXX...",
+  "...XXXX...",
+  "....XX....",
+  "....XX....",
 ];
 
 const SPR_SPLITTER = [
-  "..XXXXXX..",
-  ".XXXXXXXX.",
-  "XXOXXXXOXX",
-  "XXXXXXXXXX",
-  "XX#XXXX#XX",
-  ".XXXXXXXX.",
-  "..X.XX.X..",
-  ".X......X.",
+  ".XXX..XXX.",
+  "XXXX..XXXX",
+  "XXXXOOXXXX",
+  "XXXXOOXXXX",
+  "XXXXOOXXXX",
+  "XXXXOOXXXX",
+  "XXXX..XXXX",
+  ".XXX..XXX.",
 ];
 
 const SPR_HEALER = [
-  "....XX....",
+  "...XXXX...",
   "...XOOX...",
-  "..XOOOOX..",
-  ".XXOOOOXX.",
-  "XXXOOOOXXX",
-  ".XXOOOOXX.",
-  "..XXXXXX..",
-  "...X..X...",
+  "XXXXOOXXXX",
+  "XOOOOOOOOX",
+  "XOOOOOOOOX",
+  "XXXXOOXXXX",
+  "...XOOX...",
+  "...XXXX...",
 ];
 
 const SPR_TURRET = [
   "....XX....",
   "...XXXX...",
   "..XXOOXX..",
-  ".XXXXXXXX.",
+  ".XXXOOXXX.",
   "XXXXXXXXXX",
-  "XX#XXXX#XX",
+  "X##XXXX##X",
   "XXXXXXXXXX",
-  "XX......XX",
+  "XX.XXXX.XX",
 ];
 
 const SPR_MINE = [
-  "..X..X..",
-  "X.XXXX.X",
-  ".XXOOXX.",
-  "XXOXXOXX",
-  "XXOXXOXX",
-  ".XXOOXX.",
-  "X.XXXX.X",
-  "..X..X..",
+  "...XX...",
+  "X..XX..X",
+  ".XXXXXX.",
+  "XXXOOXXX",
+  "XXXOOXXX",
+  ".XXXXXX.",
+  "X..XX..X",
+  "...XX...",
 ];
 
 export const ENEMY_DEFS: Record<EnemyTypeId, EnemyDef> = {
-  squid: {
-    id: "squid",
-    name: "スクイド",
+  scout: {
+    id: "scout",
+    name: "スカウト",
     hp: 1,
     score: 30,
     w: 24,
@@ -183,11 +183,11 @@ export const ENEMY_DEFS: Record<EnemyTypeId, EnemyDef> = {
     fireInterval: 3.6,
     diveRate: 0,
     shot: "single",
-    sprite: SPR_SQUID,
+    sprite: SPR_SCOUT,
   },
-  crab: {
-    id: "crab",
-    name: "クラブ",
+  glider: {
+    id: "glider",
+    name: "グライダー",
     hp: 2,
     score: 50,
     w: 30,
@@ -197,11 +197,11 @@ export const ENEMY_DEFS: Record<EnemyTypeId, EnemyDef> = {
     fireInterval: 3.2,
     diveRate: 0,
     shot: "single",
-    sprite: SPR_CRAB,
+    sprite: SPR_GLIDER,
   },
-  octopus: {
-    id: "octopus",
-    name: "オクトパス",
+  hulk: {
+    id: "hulk",
+    name: "ハルク",
     hp: 3,
     score: 80,
     w: 32,
@@ -211,7 +211,7 @@ export const ENEMY_DEFS: Record<EnemyTypeId, EnemyDef> = {
     fireInterval: 2.8,
     diveRate: 0.05,
     shot: "double",
-    sprite: SPR_OCTOPUS,
+    sprite: SPR_HULK,
   },
   gunner: {
     id: "gunner",
@@ -310,7 +310,7 @@ export const ENEMY_DEFS: Record<EnemyTypeId, EnemyDef> = {
     fireInterval: 3.0,
     diveRate: 0.08,
     shot: "single",
-    splits: "squid",
+    splits: "scout",
     sprite: SPR_SPLITTER,
   },
   healer: {
