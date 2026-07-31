@@ -81,9 +81,22 @@ export const LOB_TIME = 2.6;
 export const LOB_TIME_LONG = 3.2;
 export const LOB_GRAVITY = 70;
 
-/** カーブ */
-export const SPIN_ACCEL = 185;
-export const SPIN_DECAY = 1.2;
+/**
+ * ボールに常時かかる軽い重力（1人・協力のみ）。
+ *
+ * 対戦では上下対称が崩れて勝率が偏るので掛けない。
+ */
+export const BALL_GRAVITY = 20;
+
+/**
+ * カーブ。
+ *
+ * 曲がりは ½at² で効いてくるので、加速度が小さいと「最後のほうで少し曲がる」だけになり、
+ * 実際の飛行時間（ブロックに当たるまで 0.5秒ほど）では曲がって見えない。
+ * 185 のときは 0.5秒で 20px しかズレず、「エフェクトが出るだけで曲がらない」と言われた。
+ */
+export const SPIN_ACCEL = 640;
+export const SPIN_DECAY = 0.85;
 export const POWERSPIN_MUL = 1.4;
 
 /** 技ゲージ */
@@ -196,6 +209,7 @@ export const GROUP_WEIGHT: Record<ItemGroup, number> = {
 
 export const DEFAULT_SETTINGS: Settings = {
   difficulty: "normal",
+  gravity: true,
   bgm: 0.5,
   sfx: 0.7,
   scanline: true,

@@ -167,7 +167,7 @@ function skillReport() {
 
 // ---------------------------------------------------------------- 3. カーブの曲がり幅
 
-function curveWidth() {
+function curveWidth(): { early: number; total: number } {
   h1("カーブの曲がり幅（真横＋ショット）");
   const engine = new BreakoutEngine({ mode: "solo", difficulty: "easy", seed: 3 });
   // ブロックはどけるが、1個も無いと即ステージクリアになるので届かない位置にダミーを残す
@@ -201,6 +201,9 @@ function curveWidth() {
   const hold: PlayerInput = emptyInput();
   hold.right = true;
 
+  // 打った直後にどれだけ曲がって見えるかが体感を決めるので、時間ごとに測る
+  const marks = [0.25, 0.5, 0.75, 1.0];
+  const atMark: number[] = [];
   let bounced = false;
   for (let f = 0; f < 240; f++) {
     engine.step([hold]);
@@ -219,20 +222,28 @@ function curveWidth() {
     elapsed += DT;
     // 曲がらなかった場合（初速のまま直進）との差
     const straightX = x0 + vx0 * elapsed;
-    maxDrift = Math.max(maxDrift, Math.abs(ball.x - straightX));
+    const drift = Math.abs(ball.x - straightX);
+    maxDrift = Math.max(maxDrift, drift);
+    while (atMark.length < marks.length && elapsed >= marks[atMark.length]) atMark.push(drift);
     speedDrift = Math.max(speedDrift, Math.abs(Math.hypot(ball.vx, ball.vy) - Math.hypot(vx0, vy0)));
     if (ball.y < 120 || ball.y > SOLO_PADDLE_Y) break;
   }
 
   if (!curved) {
     line("カーブが成立しなかった");
-    return -1;
+    return { early: -1, total: -1 };
   }
   line(`打ち出し速度       : ${Math.hypot(vx0, vy0).toFixed(0)} px/s（打つ前 ${BALL_START_SPEED}）`);
   line(`打ち出し位置       : (${x0.toFixed(0)}, ${y0.toFixed(0)})`);
-  line(`直進との最大差     : ${maxDrift.toFixed(1)} px（壁で跳ね返るまで。仕様の目安は約90px）`);
+  line(
+    `時間ごとのズレ     : ${marks
+      .map((m, i) => `${m}s=${(atMark[i] ?? maxDrift).toFixed(0)}px`)
+      .join(" / ")}`,
+  );
+  line(`直進との最大差     : ${maxDrift.toFixed(1)} px（壁で跳ね返るまで）`);
+  line("（体感を決めるのは 0.5秒時点のズレ。ここが小さいと「曲がらない」と感じる）");
   line(`速度のブレ         : ${speedDrift.toFixed(2)} px/s（カーブは向きだけ変える＝0に近いこと）`);
-  return maxDrift;
+  return { early: atMark[1] ?? maxDrift, total: maxDrift };
 }
 
 // ---------------------------------------------------------------- 3.5 ボレーの射程
@@ -301,9 +312,9 @@ function lobRange() {
 
 // ---------------------------------------------------------------- 4. 1人モード通し
 
-function soloRun(difficulty: Difficulty, stages: number) {
-  h1(`1人モード通し（${difficulty} / ${stages}面）`);
-  const engine = new BreakoutEngine({ mode: "solo", difficulty, seed: 42 });
+function soloRun(difficulty: Difficulty, stages: number, gravity: boolean) {
+  h1(`1人モード通し（${difficulty} / ${stages}面 / 軽い重力 ${gravity ? "あり" : "なし"}）`);
+  const engine = new BreakoutEngine({ mode: "solo", difficulty, seed: 42, gravity });
   let cleared = 0;
   let frames = 0;
   let outOfBounds = 0;
@@ -326,7 +337,8 @@ function soloRun(difficulty: Difficulty, stages: number) {
       input.left = dx < -3;
       input.right = dx > 3;
       if (ball.x < -20 || ball.x > W + 20 || ball.y > H + 60) outOfBounds++;
-      if (Math.abs(ball.vy) < 1) stuckFrames++;
+      // 重力を入れると頂点で vy≒0 を通るので、速さそのもので見る
+      if (Math.hypot(ball.vx, ball.vy) < 80) stuckFrames++;
     }
     engine.step([input]);
     engine.drainEvents();
@@ -356,7 +368,9 @@ line("SPIN RALLY ヘッドレス検証");
 line(`固定タイムステップ ${(1 / DT).toFixed(0)}Hz / 最低速度 ${BALL_MIN_SPEED}px/s`);
 line(`CPU レベル: ${Object.entries(CPU_LEVELS).map(([k, v]) => `${k}=${v.label}`).join(" ")}`);
 
-const solo = soloRun("normal", 5);
+// 軽い重力は設定で切り替えられるので、両方測る
+const soloFlat = soloRun("normal", 5, false);
+const solo = soloRun("normal", 5, true);
 const curve = curveWidth();
 const lob = lobRange();
 skillReport();
@@ -366,10 +380,13 @@ h1("判定");
 const problems: string[] = [];
 if (solo.outOfBounds > 0) problems.push("1人モードでボールが場外へ抜けた");
 if (solo.stuckFrames > 0) problems.push("ボールが停止した");
-if (solo.cleared < 5) problems.push("1人モードでステージをクリアできなかった");
+if (solo.cleared < 5) problems.push("1人モードでステージをクリアできなかった（重力あり）");
+if (soloFlat.cleared < 5) problems.push("1人モードでステージをクリアできなかった（重力なし）");
 if (versus.outOfBounds > 0) problems.push("対戦でボールが場外へ抜けた");
 if (versus.itemMisattributed > 0) problems.push("アイテムの帰属がずれた");
-if (curve < 40 || curve > 160) problems.push(`カーブの曲がり幅が想定外（${curve.toFixed(0)}px）`);
+// 0.5秒で 35px 未満だと「曲がって見えない」。逆に大きすぎると軌道を支配してしまう
+if (curve.early < 35) problems.push(`カーブが効き始めるのが遅い（0.5秒で ${curve.early.toFixed(0)}px）`);
+if (curve.early > 130) problems.push(`カーブが強すぎる（0.5秒で ${curve.early.toFixed(0)}px）`);
 // ボレーはブロックの底（324px 先）を越えられないと「飛び越える技」にならない
 if (lob < 330) problems.push(`ボレーの射程が足りない（${lob.toFixed(0)}px 上昇）`);
 const spread = Math.abs(versus.winsBottom - versus.winsTop);

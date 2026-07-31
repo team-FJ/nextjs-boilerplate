@@ -108,6 +108,7 @@ export default function BreakoutGame() {
       difficulty: settings.difficulty,
       stage: session.stage,
       seed: session.key,
+      gravity: settings.gravity,
       // 開幕サーブは交互（揃えると上下の勝率が偏ることを実測で確認している）
       firstServe: session.key % 2 === 0 ? 0 : 1,
     });
@@ -393,6 +394,14 @@ export default function BreakoutGame() {
           </div>
           <Slider label="効果音" value={settings.sfx} onChange={(v) => updateSettings({ sfx: v })} />
           <Slider label="BGM" value={settings.bgm} onChange={(v) => updateSettings({ bgm: v })} />
+          <label className="flex items-center gap-2 font-mono text-xs text-white/60">
+            <input
+              type="checkbox"
+              checked={settings.gravity}
+              onChange={(e) => updateSettings({ gravity: e.target.checked })}
+            />
+            軽い重力（1人・協力）
+          </label>
           <label className="flex items-center gap-2 font-mono text-xs text-white/60">
             <input
               type="checkbox"

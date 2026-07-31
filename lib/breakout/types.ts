@@ -164,7 +164,6 @@ export interface Paddle {
   lastSkill: { kind: SkillKind; t: number } | null;
 }
 
-/** smash は方向なし（ショットのみ）、drill は上＋ショット */
 /** 技の打ち出し角。sin は相手側へどれだけ倒したか、cos は横へどれだけ倒したか */
 export interface SkillAngle {
   sin: number;
@@ -172,6 +171,7 @@ export interface SkillAngle {
   sign: number;
 }
 
+/** smash は方向なし（ショットのみ）、drill は上＋ショット */
 export type SkillKind = "smash" | "drill" | "curve" | "lob" | "fail";
 
 export type GameEvent =
@@ -192,6 +192,8 @@ export type Phase = "ready" | "playing" | "stageClear" | "gameOver" | "roundEnd"
 
 export interface Settings {
   difficulty: Difficulty;
+  /** 1人・協力でボールに軽い重力を掛ける（対戦は上下対称が崩れるので掛けない） */
+  gravity: boolean;
   bgm: number;
   sfx: number;
   scanline: boolean;

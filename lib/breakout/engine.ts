@@ -6,6 +6,7 @@ import {
   BALL_SOLO_MAX,
   BALL_START_SPEED,
   BALL_VERSUS_MIN,
+  BALL_GRAVITY,
   BALL_VERSUS_START,
   CHAIN_MULS,
   DIFFICULTY,
@@ -123,6 +124,8 @@ export interface EngineConfig {
   seed?: number;
   /** 対戦の開幕サーブをどちらへ出すか。指定しなければ下側 */
   firstServe?: Side;
+  /** ボールに軽い重力を掛けるか（1人・協力のみ。既定は掛ける） */
+  gravity?: boolean;
 }
 
 export interface Laser {
@@ -141,6 +144,7 @@ export interface Laser {
 export class BreakoutEngine {
   readonly mode: Mode;
   readonly difficulty: Difficulty;
+  readonly gravity: boolean;
   stage: number;
   tick = 0;
   time = 0;
@@ -174,6 +178,8 @@ export class BreakoutEngine {
   constructor(config: EngineConfig) {
     this.mode = config.mode;
     this.difficulty = config.difficulty;
+    // 対戦では上下対称が崩れて勝率が偏るので、掛けるのは 1人・協力だけ
+    this.gravity = (config.gravity ?? true) && config.mode !== "versus";
     this.stage = config.stage ?? 1;
     this.rng = createRng(config.seed ?? 12345);
     this.serveTo = config.firstServe ?? 0;
@@ -582,6 +588,14 @@ export class BreakoutEngine {
       if (ball.lob > 0) {
         ball.vy += LOB_GRAVITY * ball.lobG * DT;
         ball.lob = Math.max(0, ball.lob - DT);
+      } else if (this.gravity) {
+        // 軽い重力。上がるほど失速し、落ちるほど速くなる
+        ball.vy += BALL_GRAVITY * DT;
+        const [minSpeed, maxSpeed] = this.speedRange();
+        const now = Math.hypot(ball.vx, ball.vy);
+        // 頂点で止まらないよう下限は少し緩めに掛ける（打ち返せば元の速さに戻る）
+        if (now > maxSpeed) this.setSpeed(ball, maxSpeed);
+        else if (now < minSpeed * 0.7) this.setSpeed(ball, minSpeed * 0.7);
       }
       if (ball.pierce > 0) ball.pierce--;
 

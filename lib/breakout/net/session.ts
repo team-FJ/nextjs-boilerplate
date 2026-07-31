@@ -30,6 +30,8 @@ export interface SessionOptions {
   difficulty: Difficulty;
   /** 対戦か協力か。決めるのは進行役だけで、参加側はサーバーの設定に従う */
   mode?: "versus" | "coop";
+  /** 1人・協力の軽い重力 */
+  gravity?: boolean;
   onState?: (state: TransportState, detail?: string) => void;
   now?: () => number;
 }
@@ -85,7 +87,7 @@ export function createHostSession(options: SessionOptions): NetSession {
         else transport.send(message);
       },
     },
-    { difficulty: options.difficulty, mode: options.mode ?? "versus" },
+    { difficulty: options.difficulty, mode: options.mode ?? "versus", gravity: options.gravity },
   );
   room.connect(); // 進行役が下側（side 0）に座る
   client.join(options.room);

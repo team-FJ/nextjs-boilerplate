@@ -66,6 +66,7 @@ export class BreakoutRoom {
   private elapsed = 0;
   /** ラグ補償で実際に遡ったティック数（検証用） */
   lagSamples: number[] = [];
+  private gravity = true;
 
   private emptySlot(): Slot {
     return {
@@ -84,13 +85,19 @@ export class BreakoutRoom {
   constructor(
     id: string,
     hooks: RoomHooks,
-    options: { seed?: number; difficulty?: Difficulty; mode?: "versus" | "coop" } = {},
+    options: {
+      seed?: number;
+      difficulty?: Difficulty;
+      mode?: "versus" | "coop";
+      gravity?: boolean;
+    } = {},
   ) {
     this.id = id;
     this.hooks = hooks;
     this.seed = options.seed;
     if (options.difficulty) this.config.difficulty = options.difficulty;
     if (options.mode) this.config.mode = options.mode;
+    if (options.gravity !== undefined) this.gravity = options.gravity;
     this.engine = this.newEngine(options.seed ?? 1, 0);
   }
 
@@ -100,6 +107,7 @@ export class BreakoutRoom {
       difficulty: this.config.difficulty,
       seed,
       firstServe,
+      gravity: this.gravity,
     });
   }
 

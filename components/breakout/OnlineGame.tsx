@@ -104,6 +104,7 @@ export default function OnlineGame() {
         kind,
         mode,
         difficulty: settings.difficulty,
+        gravity: settings.gravity,
         onState: (state: TransportState, detail?: string) =>
           setStatus((s) => ({ ...s, transport: state, detail: detail ?? "" })),
       } as const;
