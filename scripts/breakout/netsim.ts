@@ -268,7 +268,8 @@ function directionCheck(): boolean {
   h1("入力の向き（画面の反転と入力の反転が対になっているか）");
 
   const cases: { label: string; press: Partial<PlayerInput>; expect: string }[] = [
-    { label: "上＋ショット", press: { up: true }, expect: "smash" },
+    { label: "ショットのみ", press: {}, expect: "smash" },
+    { label: "上＋ショット", press: { up: true }, expect: "drill" },
     { label: "下＋ショット", press: { down: true }, expect: "lob" },
     { label: "右＋ショット", press: { right: true }, expect: "curve" },
     { label: "左＋ショット", press: { left: true }, expect: "curve" },

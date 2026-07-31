@@ -138,25 +138,26 @@ export class CpuPlayer {
       const jitter = (this.nextRand() * 2 - 1) * spec.timingError;
       if (frames + jitter <= 3 && frames > -2 && Math.abs(dx) < 40) {
         const roll = this.nextRand();
-        // 中立ブロックが厚いときはボレーで飛び越え、薄いときはスマッシュで押し込む
+        // 中立ブロックが厚いときはボレーで飛び越え、薄いときは素直に速い球を返す
         const bandLeft = engine.blocks.filter((b) => b.alive).length;
-        const lobBias = bandLeft > 20 ? 0.45 : 0.2;
+        const lobBias = bandLeft > 20 ? 0.25 : 0.1;
+        input.left = input.right = input.up = input.down = false;
         if (roll < lobBias) {
+          // ボレー：自分側へ倒す
           input.up = this.side === 1;
           input.down = this.side === 0;
-          input.left = input.right = false;
-        } else if (roll < lobBias + 0.35) {
+        } else if (roll < lobBias + 0.2) {
+          // ドリル：相手側へ倒す
           input.up = this.side === 0;
           input.down = this.side === 1;
-          input.left = input.right = false;
-        } else {
+        } else if (roll < lobBias + 0.55) {
           // カーブ：相手のいない側へ曲げる
           const foe = engine.paddles.find((p) => p.side !== this.side);
           const toRight = foe ? foe.x < W / 2 : this.nextRand() < 0.5;
           input.left = !toRight;
           input.right = toRight;
-          input.up = input.down = false;
         }
+        // それ以外は方向を入れない＝スマッシュ（速さだけの一撃）
         input.fire = true;
         this.cooldown = 10;
       }

@@ -146,8 +146,8 @@ export interface Paddle {
   gaugeMax: number;
   /** 技の失敗による硬直の残り秒 */
   stun: number;
-  /** 技の入力待ち（ボール接触前に押された分） */
-  pending: { sin: number; cos: number; sign: number; tick: number } | null;
+  /** 技の入力待ち（ボール接触前に押された分）。angle が null なら方向なし＝スマッシュ */
+  pending: { angle: SkillAngle | null; tick: number } | null;
   /** 直近でボールに触れたティックと相手ボール。後入力の受付に使う */
   hitTick: number;
   hitBall: number;
@@ -164,7 +164,15 @@ export interface Paddle {
   lastSkill: { kind: SkillKind; t: number } | null;
 }
 
-export type SkillKind = "smash" | "curve" | "lob" | "fail";
+/** smash は方向なし（ショットのみ）、drill は上＋ショット */
+/** 技の打ち出し角。sin は相手側へどれだけ倒したか、cos は横へどれだけ倒したか */
+export interface SkillAngle {
+  sin: number;
+  cos: number;
+  sign: number;
+}
+
+export type SkillKind = "smash" | "drill" | "curve" | "lob" | "fail";
 
 export type GameEvent =
   | { type: "blockHit"; x: number; y: number }

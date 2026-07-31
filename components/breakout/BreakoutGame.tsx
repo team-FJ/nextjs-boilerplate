@@ -281,7 +281,7 @@ export default function BreakoutGame() {
         <p className="font-mono text-[10px] tracking-[0.4em] text-white/40">fujiki games</p>
         <h1 className="font-mono text-3xl font-bold tracking-[0.2em] text-cyan-300">SPIN RALLY</h1>
         <p className="mt-1 font-mono text-[11px] text-white/50">
-          上でスマッシュ・横でカーブ・下でボレー
+          押すだけでスマッシュ・横でカーブ・下でボレー
         </p>
       </header>
 
@@ -411,18 +411,18 @@ export default function BreakoutGame() {
         <section className="flex w-full max-w-md flex-col gap-3 font-mono text-[11px] leading-relaxed text-white/60">
           <h2 className="text-sm text-white/70">遊びかた</h2>
           <p>
-            技は<b className="text-white/90">スティックの向きひとつ</b>で決まります。
-            相手側（ブロック側）へ倒すほど速く、横へ倒すほど曲がります。
+            技は<b className="text-white/90">方向を入れるかどうか</b>で決まります。
+            何も入れずに押せば速くなり、方向を入れると速さのかわりに効果が付きます。
           </p>
           <table className="w-full border-collapse text-left">
             <tbody>
               {[
-                ["真上 ＋ ショット", "スマッシュ", "速度×1.55・ブロックを貫通"],
-                ["斜め上 ＋ ショット", "ライズカーブ", "速いまま緩く曲げる"],
+                ["ショットのみ", "スマッシュ", "速度×1.55。速さだけの一撃"],
+                ["真上 ＋ ショット", "ドリル", "ブロックを跳ね返らず突き抜ける"],
+                ["斜め上 ＋ ショット", "ライズカーブ", "少し突き抜けて少し曲がる"],
                 ["真横 ＋ ショット", "フラットカーブ", "最大に曲がる（約90px）"],
                 ["斜め下 ＋ ショット", "ドロップカーブ", "曲げながら失速"],
-                ["真下 ＋ ショット", "ボレー", "山なりでブロックを飛び越える"],
-                ["方向なし ＋ ショット", "—", "レーザー（アイテム取得時）"],
+                ["真下 ＋ ショット", "ボレー", "高く浮いてブロックを飛び越える"],
               ].map(([a, b, c]) => (
                 <tr key={a} className="border-b border-white/5">
                   <td className="py-1 pr-2 text-white/80">{a}</td>
@@ -435,6 +435,7 @@ export default function BreakoutGame() {
           <p>
             ボールが当たる瞬間に合わせて押します（ふつう以上は±数フレーム、外すと短い硬直）。
             やさしいは押しておけば必ず成立します。技はゲージを使い、時間で回復します。
+            スマホでは、スティックから指を離してショットだけ押せばスマッシュになります。
           </p>
           <p className="text-white/50">
             アイテムは全{Object.keys(ITEMS).length}種。

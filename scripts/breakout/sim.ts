@@ -47,7 +47,7 @@ function versusRounds(rounds: number, level: CpuLevel) {
   let bandLeftTotal = 0;
   let bandStartTotal = 0;
   let outOfBounds = 0;
-  const skills = { smash: 0, curve: 0, lob: 0, fail: 0 };
+  const skills = { smash: 0, drill: 0, curve: 0, lob: 0, fail: 0 };
   let items = 0;
   let itemMisattributed = 0;
 
@@ -104,8 +104,8 @@ function versusRounds(rounds: number, level: CpuLevel) {
   line(`総得点（下-上）    : ${points[0]}-${points[1]}`);
   line(`得点機会（陣地侵入）: ${zoneEntries} 回 → 得点 ${points[0] + points[1]} 回（決定率 ${((points[0] + points[1]) / Math.max(1, zoneEntries) * 100).toFixed(1)}%）`);
   line(`中立ブロック残り    : ${(bandLeftTotal / rounds).toFixed(1)} / ${(bandStartTotal / rounds).toFixed(1)}`);
-  line(`技の内訳           : スマッシュ ${skills.smash} / カーブ ${skills.curve} / ボレー ${skills.lob} / 空振り ${skills.fail}`);
-  line(`技の成立率         : ${((1 - skills.fail / Math.max(1, skills.smash + skills.curve + skills.lob + skills.fail)) * 100).toFixed(1)} %`);
+  line(`技の内訳           : スマッシュ ${skills.smash} / ドリル ${skills.drill} / カーブ ${skills.curve} / ボレー ${skills.lob} / 空振り ${skills.fail}`);
+  line(`技の成立率         : ${((1 - skills.fail / Math.max(1, skills.smash + skills.drill + skills.curve + skills.lob + skills.fail)) * 100).toFixed(1)} %`);
   line(`アイテム取得       : ${items} 件（帰属ミス ${itemMisattributed} 件）`);
   line(`場外へ抜けた回数   : ${outOfBounds}`);
   return { winsBottom, winsTop, outOfBounds, itemMisattributed };
@@ -235,6 +235,70 @@ function curveWidth() {
   return maxDrift;
 }
 
+// ---------------------------------------------------------------- 3.5 ボレーの射程
+
+/**
+ * ボレーがどこまで飛ぶか。
+ *
+ * 「すぐ戻ってきて使い道がない」という指摘を数値で確かめる。
+ * 1人モードではパドル（y=660）からブロックの底（y≒336）まで 324px あり、
+ * ロブが切れる前にそこを越えられなければ「ブロックを飛び越える技」として成立しない。
+ */
+function lobRange() {
+  h1("ボレーの射程（真下＋ショット）");
+  const engine = new BreakoutEngine({ mode: "solo", difficulty: "easy", seed: 3 });
+  // ブロックは届かない位置へ逃がす（当たると跳ね返って射程が測れない）
+  engine.blocks = engine.blocks.map((b) => ({ ...b, y: -400, baseX: b.x }));
+  engine.phase = "playing";
+  const paddle = engine.paddles[0];
+  const ball = engine.balls[0];
+  ball.x = W / 2;
+  ball.y = SOLO_PADDLE_Y - 40;
+  ball.vx = 0;
+  ball.vy = BALL_START_SPEED;
+  paddle.x = W / 2;
+
+  const press: PlayerInput = emptyInput();
+  press.down = true;
+  press.fire = true;
+  engine.step([press]);
+
+  let lobbed = false;
+  let y0 = 0;
+  let peak = SOLO_PADDLE_Y;
+  let endY = SOLO_PADDLE_Y;
+  let lobFrames = 0;
+  for (let f = 0; f < 400; f++) {
+    engine.step([emptyInput()]);
+    for (const e of engine.drainEvents()) {
+      if (e.type === "skill" && e.kind === "lob" && !lobbed) {
+        lobbed = true;
+        y0 = ball.y;
+      }
+    }
+    if (!lobbed) continue;
+    if (ball.lob > 0) {
+      lobFrames++;
+      endY = ball.y;
+      peak = Math.min(peak, ball.y);
+    } else {
+      break;
+    }
+  }
+
+  if (!lobbed) {
+    line("ボレーが成立しなかった");
+    return -1;
+  }
+  const rise = y0 - peak;
+  line(`打ち出し位置       : y=${y0.toFixed(0)}`);
+  line(`ロブが続いた時間   : ${(lobFrames / 60).toFixed(2)} 秒`);
+  line(`最高到達点         : y=${peak.toFixed(0)}（${rise.toFixed(0)}px 上昇）`);
+  line(`ロブが切れた位置   : y=${endY.toFixed(0)}`);
+  line(`ブロックの底(336)  : ${peak < 336 ? "越えられる" : "届かない"}`);
+  return rise;
+}
+
 // ---------------------------------------------------------------- 4. 1人モード通し
 
 function soloRun(difficulty: Difficulty, stages: number) {
@@ -294,6 +358,7 @@ line(`CPU レベル: ${Object.entries(CPU_LEVELS).map(([k, v]) => `${k}=${v.labe
 
 const solo = soloRun("normal", 5);
 const curve = curveWidth();
+const lob = lobRange();
 skillReport();
 const versus = versusRounds(40, 3);
 
@@ -305,6 +370,8 @@ if (solo.cleared < 5) problems.push("1人モードでステージをクリアで
 if (versus.outOfBounds > 0) problems.push("対戦でボールが場外へ抜けた");
 if (versus.itemMisattributed > 0) problems.push("アイテムの帰属がずれた");
 if (curve < 40 || curve > 160) problems.push(`カーブの曲がり幅が想定外（${curve.toFixed(0)}px）`);
+// ボレーはブロックの底（324px 先）を越えられないと「飛び越える技」にならない
+if (lob < 330) problems.push(`ボレーの射程が足りない（${lob.toFixed(0)}px 上昇）`);
 const spread = Math.abs(versus.winsBottom - versus.winsTop);
 if (spread > 14) problems.push(`上下の勝率が偏っている（差 ${spread}）`);
 

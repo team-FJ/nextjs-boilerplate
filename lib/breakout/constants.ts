@@ -3,10 +3,16 @@ import type { Difficulty, ItemGroup, ItemKind, Settings } from "./types";
 /**
  * SPIN RALLY のバランス定数。仕様書 docs/breakout-spec.md と対応させること。
  *
- * 設計の要：技は「打ち出し角 θ」ひとつで決まる連続体。
- *   速度倍率 = SPEED_BASE + SPEED_SWING * sinθ   （真上 1.55 / 真横 1.20 / 真下 0.85）
- *   スピン   = cosθ × 左右の符号                  （真横で最大、真上・真下で 0）
- * 「上に倒すほど速く、横に倒すほど曲がる」トレードオフをこの2式だけで表す。
+ * 設計の要：技は「方向を入れるか入れないか」で2系統に分かれる。
+ *
+ *   方向なし（ショットのみ）＝ スマッシュ。速度 × POWER_MUL だけの、純粋に強い一撃
+ *   方向あり             ＝ 効果が付くかわりに速くならない。向き θ で連続的に変わる
+ *       速度倍率 = SKILL_SPEED_BASE + SKILL_SPEED_SWING * sinθ （上 1.25 / 横 1.05 / 下 0.85）
+ *       貫通     = max(0, sinθ)   （真上で最大＝ドリル）
+ *       スピン   = cosθ × 左右の符号（真横で最大＝カーブ）
+ *       ロブ     = sinθ ≦ −SKILL_POLE（真下＝ボレー）
+ *
+ * 「速さを取るか、効果を取るか」がこの分岐そのものになっている。
  */
 
 export const W = 480;
@@ -46,22 +52,34 @@ export const BLOCK_LEFT = 20;
 export const BLOCK_TOP = 96;
 export const BLOCK_ROWS = 8;
 
-/** 技：速度倍率 = SPEED_BASE + SPEED_SWING * sinθ */
-export const SPEED_BASE = 1.2;
-export const SPEED_SWING = 0.35;
-/** |sinθ| がこれ以上ならスマッシュ／ボレーとして扱う（それ以外はカーブ） */
+/** スマッシュ（方向なし＋ショット）の速度倍率 */
+export const POWER_MUL = 1.55;
+
+/** 方向つきの技：速度倍率 = SKILL_SPEED_BASE + SKILL_SPEED_SWING * sinθ */
+export const SKILL_SPEED_BASE = 1.18;
+export const SKILL_SPEED_SWING = 0.2;
+/**
+ * ボレーだけは θ の式から外して明示的に落とす。
+ * 式に任せると「遅くならないロブ」になってしまい、浮いた球という性格が消える。
+ */
+export const LOB_SPEED_MUL = 0.8;
+/** |sinθ| がこれ以上ならドリル／ボレーとして扱う（それ以外はカーブ） */
 export const SKILL_POLE = 0.85;
 
-/** スマッシュ */
-export const SMASH_PIERCE_FRAMES = 8;
-export const SMASH_PIERCE_HEAVY = 20;
-/** 反射角を法線から ±この角度に矯正する */
-export const SMASH_CONE = (20 * Math.PI) / 180;
+/** ドリル（上＋ショット）：ブロックを跳ね返らずに突き抜けるフレーム数 */
+export const DRILL_FRAMES = 14;
+export const DRILL_FRAMES_HEAVY = 30;
 
-/** ボレー（ロブ） */
-export const LOB_TIME = 0.9;
-export const LOB_TIME_LONG = 1.4;
-export const LOB_GRAVITY = 620;
+/**
+ * ボレー（ロブ）。
+ *
+ * 重力が強いとすぐ落ちてきて使い道が無くなる。
+ * 中央で受けた球（上向き 255px/s）が届く高さは v²/2g なので、
+ * 620 では 52px＝ブロック2行にも足りなかった。ブロック帯を越える射程が要る。
+ */
+export const LOB_TIME = 2.6;
+export const LOB_TIME_LONG = 3.2;
+export const LOB_GRAVITY = 70;
 
 /** カーブ */
 export const SPIN_ACCEL = 185;
@@ -72,11 +90,14 @@ export const POWERSPIN_MUL = 1.4;
 export const GAUGE_MAX = 100;
 export const GAUGE_BOOST_MAX = 150;
 export const GAUGE_REGEN = 22;
+/** 方向つきの技の消費 = GAUGE_COST_BASE + GAUGE_COST_SWING * |sinθ| */
 export const GAUGE_COST_BASE = 28;
-export const GAUGE_COST_SWING = 12;
+export const GAUGE_COST_SWING = 8;
+/** スマッシュ（方向なし）は一番高い */
+export const GAUGE_COST_POWER = 40;
 export const GAUGE_COST_FAIL = 12;
-export const LASER_COST = 20;
-export const LASER_INTERVAL = 0.25;
+/** レーザーは自動で撃つ（ショットは技に使うため、入力を奪わない） */
+export const LASER_INTERVAL = 0.4;
 
 /** 技の判定：先行入力の受付フレーム数 */
 export const PRE_INPUT_FRAMES = 12;
