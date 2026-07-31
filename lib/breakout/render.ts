@@ -180,14 +180,13 @@ function drawPaddles(ctx: CanvasRenderingContext2D, engine: RenderState) {
 /** 直前に出した技を、パドルの上に短く表示する */
 function drawSkillFlash(ctx: CanvasRenderingContext2D, p: Paddle) {
   if (!p.lastSkill) return;
-  const label =
-    p.lastSkill.kind === "smash"
-      ? "SMASH"
-      : p.lastSkill.kind === "curve"
-        ? "CURVE"
-        : p.lastSkill.kind === "lob"
-          ? "VOLLEY"
-          : "MISS";
+  const label = {
+    smash: "SMASH",
+    drill: "DRILL",
+    curve: "CURVE",
+    lob: "VOLLEY",
+    fail: "MISS",
+  }[p.lastSkill.kind];
   ctx.fillStyle = p.lastSkill.kind === "fail" ? "#ff5470" : "#ffffff";
   ctx.font = "bold 11px monospace";
   ctx.textAlign = "center";

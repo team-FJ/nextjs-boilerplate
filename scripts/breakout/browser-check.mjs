@@ -196,6 +196,16 @@ try {
   }
   check("上＋ショットで技のラベルが出る", labelSeen > 0, `白画素 ${labelSeen}`);
 
+  // HUD から画面をなぞってもテキスト選択が始まらないこと。
+  // iOS では選択ハンドルが出て遊べなくなる（実機で発生した）。
+  await page.mouse.move(60, 60);
+  await page.mouse.down();
+  await page.mouse.move(300, 400, { steps: 12 });
+  await page.mouse.move(320, 600, { steps: 12 });
+  await page.mouse.up();
+  const selected = await page.evaluate(() => (window.getSelection()?.toString() ?? "").trim());
+  check("なぞってもテキストが選択されない", selected === "", selected ? `「${selected.slice(0, 20)}」` : "選択なし");
+
   check("JavaScript エラーが出ていない", errors.length === 0, errors.slice(0, 2).join(" / "));
 
   // ---- 通信対戦（同じブラウザの別タブ同士）--------------------------------

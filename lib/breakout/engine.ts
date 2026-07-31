@@ -6,6 +6,7 @@ import {
   BALL_SOLO_MAX,
   BALL_START_SPEED,
   BALL_VERSUS_MIN,
+  BALL_GRAVITY,
   BALL_VERSUS_START,
   CHAIN_MULS,
   DIFFICULTY,
@@ -22,10 +23,10 @@ import {
   ITEM_DROP_RATE_TOUGH,
   ITEM_FALL_SPEED,
   ITEM_MAX_ACTIVE,
-  LASER_COST,
   LASER_INTERVAL,
   LIVES,
   LOB_GRAVITY,
+  LOB_SPEED_MUL,
   LOB_TIME,
   LOB_TIME_LONG,
   PADDLE_H,
@@ -38,13 +39,14 @@ import {
   PLAY_TOP,
   POWERSPIN_MUL,
   PRE_INPUT_FRAMES,
+  DRILL_FRAMES,
+  DRILL_FRAMES_HEAVY,
+  GAUGE_COST_POWER,
+  POWER_MUL,
   SKILL_POLE,
-  SMASH_CONE,
-  SMASH_PIERCE_FRAMES,
-  SMASH_PIERCE_HEAVY,
+  SKILL_SPEED_BASE,
+  SKILL_SPEED_SWING,
   SOLO_PADDLE_Y,
-  SPEED_BASE,
-  SPEED_SWING,
   SPIN_ACCEL,
   SPIN_DECAY,
   STUN_TIME,
@@ -74,6 +76,7 @@ import type {
   Phase,
   PlayerInput,
   Side,
+  SkillAngle,
   SkillKind,
 } from "./types";
 import { emptyInput } from "./types";
@@ -121,6 +124,8 @@ export interface EngineConfig {
   seed?: number;
   /** 対戦の開幕サーブをどちらへ出すか。指定しなければ下側 */
   firstServe?: Side;
+  /** ボールに軽い重力を掛けるか（1人・協力のみ。既定は掛ける） */
+  gravity?: boolean;
 }
 
 export interface Laser {
@@ -139,6 +144,7 @@ export interface Laser {
 export class BreakoutEngine {
   readonly mode: Mode;
   readonly difficulty: Difficulty;
+  readonly gravity: boolean;
   stage: number;
   tick = 0;
   time = 0;
@@ -172,6 +178,8 @@ export class BreakoutEngine {
   constructor(config: EngineConfig) {
     this.mode = config.mode;
     this.difficulty = config.difficulty;
+    // 対戦では上下対称が崩れて勝率が偏るので、掛けるのは 1人・協力だけ
+    this.gravity = (config.gravity ?? true) && config.mode !== "versus";
     this.stage = config.stage ?? 1;
     this.rng = createRng(config.seed ?? 12345);
     this.serveTo = config.firstServe ?? 0;
@@ -351,7 +359,15 @@ export class BreakoutEngine {
     p.w = (p.timers.wide ?? 0) > 0 ? PADDLE_W_WIDE : (p.timers.narrow ?? 0) > 0 || (p.timers.shrink ?? 0) > 0 ? PADDLE_W_NARROW : PADDLE_W;
     p.gaugeMax = (p.timers.gaugeboost ?? 0) > 0 ? GAUGE_BOOST_MAX : GAUGE_MAX;
     if (p.stun > 0) p.stun = Math.max(0, p.stun - DT);
+    // レーザーは自動で撃つ。ショットは技に使うので入力を奪わない
     if (p.laserCd > 0) p.laserCd -= DT;
+    if ((p.timers.laser ?? 0) > 0 && p.laserCd <= 0) {
+      p.laserCd = LASER_INTERVAL;
+      const dir = p.side === 0 ? -1 : 1;
+      this.lasers.push({ x: p.x - 18, y: p.y, vy: 620 * dir, side: p.side });
+      this.lasers.push({ x: p.x + 18, y: p.y, vy: 620 * dir, side: p.side });
+      this.events.push({ type: "laser" });
+    }
     if ((p.timers.jam ?? 0) <= 0) p.gauge = Math.min(p.gaugeMax, p.gauge + GAUGE_REGEN * DT);
     if (p.lastSkill && this.time - p.lastSkill.t > 0.4) p.lastSkill = null;
 
@@ -374,7 +390,7 @@ export class BreakoutEngine {
    *
    * 「相手の方向に倒す＝スマッシュ」で統一するため、上側プレイヤーは画面の下が前方になる。
    */
-  private angleOf(p: Paddle, input: PlayerInput): { sin: number; cos: number; sign: number } | null {
+  private angleOf(p: Paddle, input: PlayerInput): SkillAngle | null {
     let ix: number;
     let iy: number;
     if (input.analog) {
@@ -393,8 +409,10 @@ export class BreakoutEngine {
     return { sin: clamp(forward, -1, 1), cos: Math.abs(ix), sign: Math.sign(ix) || 1 };
   }
 
-  private skillCost(sin: number) {
-    return GAUGE_COST_BASE + GAUGE_COST_SWING * Math.abs(sin);
+  /** 方向なし（スマッシュ）が一番高い。カーブを主役に置くため横が一番安い */
+  private skillCost(angle: SkillAngle | null) {
+    if (!angle) return GAUGE_COST_POWER;
+    return GAUGE_COST_BASE + GAUGE_COST_SWING * Math.abs(angle.sin);
   }
 
   private handleFire(p: Paddle, input: PlayerInput) {
@@ -423,23 +441,12 @@ export class BreakoutEngine {
       return;
     }
 
+    // 方向を入れずに押したら「スマッシュ」＝速さだけの一撃。
+    // 方向を入れると効果が付くかわりに速くならない。この分岐が技の背骨。
     const angle = this.angleOf(p, input);
 
-    // ニュートラル＋ショットはレーザー（技は出ない・ゲージも減らない）
-    if (!angle) {
-      if ((p.timers.laser ?? 0) > 0 && p.laserCd <= 0 && p.gauge >= LASER_COST) {
-        p.gauge -= LASER_COST;
-        p.laserCd = LASER_INTERVAL;
-        const dir = p.side === 0 ? -1 : 1;
-        this.lasers.push({ x: p.x - 18, y: p.y, vy: 620 * dir, side: p.side });
-        this.lasers.push({ x: p.x + 18, y: p.y, vy: 620 * dir, side: p.side });
-        this.events.push({ type: "laser" });
-      }
-      return;
-    }
-
     if (p.stun > 0) return;
-    if (p.gauge < this.skillCost(angle.sin)) return;
+    if (p.gauge < this.skillCost(angle)) return;
 
     /**
      * すでに接触が済んでいるなら、判定窓の内側にある限り遡って適用する。
@@ -458,37 +465,39 @@ export class BreakoutEngine {
         return;
       }
     }
-    p.pending = { ...angle, tick: pressTick };
+    p.pending = { angle, tick: pressTick };
   }
 
   // ---------------------------------------------------------------- skills
 
-  private applySkill(p: Paddle, ball: Ball, a: { sin: number; cos: number; sign: number }) {
-    const cost = this.skillCost(a.sin);
+  private applySkill(p: Paddle, ball: Ball, a: SkillAngle | null) {
+    const cost = this.skillCost(a);
     if (p.gauge < cost) return;
     p.gauge -= cost;
 
     const speed = Math.hypot(ball.vx, ball.vy);
     const [minSpeed, maxSpeed] = this.speedRange();
-    const mul = SPEED_BASE + SPEED_SWING * a.sin;
+
+    // 方向なし＝スマッシュ。速くするだけで、曲がりも貫通も付かない
+    if (!a) {
+      this.setSpeed(ball, clamp(speed * POWER_MUL, minSpeed, maxSpeed));
+      ball.spin = 0;
+      ball.spinT = 0;
+      ball.lob = 0;
+      this.finishSkill(p, ball, "smash");
+      return;
+    }
+
+    const mul = SKILL_SPEED_BASE + SKILL_SPEED_SWING * a.sin;
     const next = clamp(speed * mul, minSpeed, maxSpeed);
 
     let kind: SkillKind = "curve";
     if (a.sin >= SKILL_POLE) {
-      kind = "smash";
-      // 反射角を法線（前方）から ±SMASH_CONE に矯正する
-      const forward = p.side === 0 ? -1 : 1;
-      const base = forward < 0 ? -Math.PI / 2 : Math.PI / 2;
-      const cur = Math.atan2(ball.vy, ball.vx);
-      let diff = cur - base;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      const corrected = base + clamp(diff, -SMASH_CONE, SMASH_CONE);
-      ball.vx = Math.cos(corrected) * next;
-      ball.vy = Math.sin(corrected) * next;
-      ball.pierce = (p.timers.heavysmash ?? 0) > 0 ? SMASH_PIERCE_HEAVY : SMASH_PIERCE_FRAMES;
+      kind = "drill";
+      ball.pierce = (p.timers.heavysmash ?? 0) > 0 ? DRILL_FRAMES_HEAVY : DRILL_FRAMES;
       ball.spin = 0;
       ball.spinT = 0;
+      this.setSpeed(ball, next);
     } else if (a.sin <= -SKILL_POLE) {
       kind = "lob";
       ball.lob = (p.timers.longlob ?? 0) > 0 ? LOB_TIME_LONG : LOB_TIME;
@@ -496,11 +505,15 @@ export class BreakoutEngine {
       ball.lobG = p.side === 0 ? 1 : -1;
       ball.spin = 0;
       ball.spinT = 0;
-      this.setSpeed(ball, next);
+      // 浮いた遅い球にする（θ の式のままだとほとんど減速しない）
+      this.setSpeed(ball, clamp(speed * LOB_SPEED_MUL, minSpeed * 0.8, maxSpeed));
     } else {
       const spinMul = (p.timers.powerspin ?? 0) > 0 ? POWERSPIN_MUL : 1;
       ball.spin = a.cos * a.sign * spinMul;
       ball.spinT = SPIN_DECAY;
+      // 斜め上は少しだけ貫通する（上ほどドリル寄り、という連続性を保つ）
+      const heavy = (p.timers.heavysmash ?? 0) > 0 ? DRILL_FRAMES_HEAVY : DRILL_FRAMES;
+      ball.pierce = Math.max(ball.pierce, Math.round(Math.max(0, a.sin) * heavy));
       this.setSpeed(ball, next);
     }
 
@@ -509,6 +522,11 @@ export class BreakoutEngine {
       ball.pierce = Math.max(ball.pierce, 60);
     }
 
+    this.finishSkill(p, ball, kind);
+  }
+
+  /** 技が成立したあとの共通処理（連携チェインの判定と通知） */
+  private finishSkill(p: Paddle, ball: Ball, kind: SkillKind) {
     // 協力：ボレーで上げた球を相方がスマッシュで叩くと連携成立
     if (
       this.mode === "coop" &&
@@ -570,6 +588,14 @@ export class BreakoutEngine {
       if (ball.lob > 0) {
         ball.vy += LOB_GRAVITY * ball.lobG * DT;
         ball.lob = Math.max(0, ball.lob - DT);
+      } else if (this.gravity) {
+        // 軽い重力。上がるほど失速し、落ちるほど速くなる
+        ball.vy += BALL_GRAVITY * DT;
+        const [minSpeed, maxSpeed] = this.speedRange();
+        const now = Math.hypot(ball.vx, ball.vy);
+        // 頂点で止まらないよう下限は少し緩めに掛ける（打ち返せば元の速さに戻る）
+        if (now > maxSpeed) this.setSpeed(ball, maxSpeed);
+        else if (now < minSpeed * 0.7) this.setSpeed(ball, minSpeed * 0.7);
       }
       if (ball.pierce > 0) ball.pierce--;
 
@@ -765,7 +791,7 @@ export class BreakoutEngine {
         const window = DIFFICULTY[this.difficulty].window;
         const late = this.tick - p.pending.tick;
         if (window === null || late <= window) {
-          this.applySkill(p, ball, p.pending);
+          this.applySkill(p, ball, p.pending.angle);
         } else {
           p.gauge = Math.max(0, p.gauge - GAUGE_COST_FAIL);
           p.stun = STUN_TIME;

@@ -23,6 +23,8 @@ export function sfxFor(e: GameEvent): { name: SfxName; pitch?: number; throttle?
       switch (e.kind) {
         case "smash":
           return { name: "rail", pitch: 1.1 };
+        case "drill":
+          return { name: "laser", pitch: 0.85 };
         case "curve":
           return { name: "wave", pitch: 1.3 };
         case "lob":

@@ -108,6 +108,7 @@ export default function BreakoutGame() {
       difficulty: settings.difficulty,
       stage: session.stage,
       seed: session.key,
+      gravity: settings.gravity,
       // 開幕サーブは交互（揃えると上下の勝率が偏ることを実測で確認している）
       firstServe: session.key % 2 === 0 ? 0 : 1,
     });
@@ -232,14 +233,14 @@ export default function BreakoutGame() {
 
   if (screen === "game" && session) {
     return (
-      <main className="flex min-h-dvh w-full flex-col items-center justify-start gap-1 bg-[#05060c] p-2">
+      <main className="flex min-h-dvh w-full flex-col items-center justify-start gap-1 bg-[#05060c] p-2 select-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]">
         <Hud state={hud} />
         <div className="relative w-full max-w-md" style={{ aspectRatio: `${W} / ${H}` }}>
           <canvas
             ref={canvasRef}
             width={W}
             height={H}
-            className="h-full w-full rounded-lg border border-white/10"
+            className="h-full w-full touch-none rounded-lg border border-white/10"
           />
           {(paused || result) && (
             <Overlay
@@ -276,12 +277,12 @@ export default function BreakoutGame() {
   }
 
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-[#05060c] p-6 text-white">
+    <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-[#05060c] p-6 text-white select-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]">
       <header className="text-center">
         <p className="font-mono text-[10px] tracking-[0.4em] text-white/40">fujiki games</p>
         <h1 className="font-mono text-3xl font-bold tracking-[0.2em] text-cyan-300">SPIN RALLY</h1>
         <p className="mt-1 font-mono text-[11px] text-white/50">
-          上でスマッシュ・横でカーブ・下でボレー
+          押すだけでスマッシュ・横でカーブ・下でボレー
         </p>
       </header>
 
@@ -396,6 +397,14 @@ export default function BreakoutGame() {
           <label className="flex items-center gap-2 font-mono text-xs text-white/60">
             <input
               type="checkbox"
+              checked={settings.gravity}
+              onChange={(e) => updateSettings({ gravity: e.target.checked })}
+            />
+            軽い重力（1人・協力）
+          </label>
+          <label className="flex items-center gap-2 font-mono text-xs text-white/60">
+            <input
+              type="checkbox"
               checked={settings.scanline}
               onChange={(e) => updateSettings({ scanline: e.target.checked })}
             />
@@ -411,18 +420,18 @@ export default function BreakoutGame() {
         <section className="flex w-full max-w-md flex-col gap-3 font-mono text-[11px] leading-relaxed text-white/60">
           <h2 className="text-sm text-white/70">遊びかた</h2>
           <p>
-            技は<b className="text-white/90">スティックの向きひとつ</b>で決まります。
-            相手側（ブロック側）へ倒すほど速く、横へ倒すほど曲がります。
+            技は<b className="text-white/90">方向を入れるかどうか</b>で決まります。
+            何も入れずに押せば速くなり、方向を入れると速さのかわりに効果が付きます。
           </p>
           <table className="w-full border-collapse text-left">
             <tbody>
               {[
-                ["真上 ＋ ショット", "スマッシュ", "速度×1.55・ブロックを貫通"],
-                ["斜め上 ＋ ショット", "ライズカーブ", "速いまま緩く曲げる"],
+                ["ショットのみ", "スマッシュ", "速度×1.55。速さだけの一撃"],
+                ["真上 ＋ ショット", "ドリル", "ブロックを跳ね返らず突き抜ける"],
+                ["斜め上 ＋ ショット", "ライズカーブ", "少し突き抜けて少し曲がる"],
                 ["真横 ＋ ショット", "フラットカーブ", "最大に曲がる（約90px）"],
                 ["斜め下 ＋ ショット", "ドロップカーブ", "曲げながら失速"],
-                ["真下 ＋ ショット", "ボレー", "山なりでブロックを飛び越える"],
-                ["方向なし ＋ ショット", "—", "レーザー（アイテム取得時）"],
+                ["真下 ＋ ショット", "ボレー", "高く浮いてブロックを飛び越える"],
               ].map(([a, b, c]) => (
                 <tr key={a} className="border-b border-white/5">
                   <td className="py-1 pr-2 text-white/80">{a}</td>
@@ -435,6 +444,7 @@ export default function BreakoutGame() {
           <p>
             ボールが当たる瞬間に合わせて押します（ふつう以上は±数フレーム、外すと短い硬直）。
             やさしいは押しておけば必ず成立します。技はゲージを使い、時間で回復します。
+            スマホでは、スティックから指を離してショットだけ押せばスマッシュになります。
           </p>
           <p className="text-white/50">
             アイテムは全{Object.keys(ITEMS).length}種。
