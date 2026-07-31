@@ -35,7 +35,9 @@ function Gauge({ value, max, label, stunned }: { value: number; max: number; lab
 export function Hud({ state }: { state: HudState }) {
   const versus = state.mode === "versus";
   return (
-    <div className="flex w-full max-w-md items-center justify-between gap-2 px-1 py-1 font-mono text-xs text-white/80">
+    // 親からの継承だけに頼らず、文字を持つこの行にも直接指定する
+    // （iOS で選択ハンドルが出ると遊べなくなる）
+    <div className="flex w-full max-w-md touch-none select-none items-center justify-between gap-2 px-1 py-1 font-mono text-xs text-white/80">
       {versus ? (
         <>
           <span className="text-cyan-300">YOU {state.points[0]}</span>
