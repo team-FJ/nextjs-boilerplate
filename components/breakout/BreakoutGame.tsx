@@ -232,14 +232,14 @@ export default function BreakoutGame() {
 
   if (screen === "game" && session) {
     return (
-      <main className="flex min-h-dvh w-full flex-col items-center justify-start gap-1 bg-[#05060c] p-2">
+      <main className="flex min-h-dvh w-full flex-col items-center justify-start gap-1 bg-[#05060c] p-2 select-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]">
         <Hud state={hud} />
         <div className="relative w-full max-w-md" style={{ aspectRatio: `${W} / ${H}` }}>
           <canvas
             ref={canvasRef}
             width={W}
             height={H}
-            className="h-full w-full rounded-lg border border-white/10"
+            className="h-full w-full touch-none rounded-lg border border-white/10"
           />
           {(paused || result) && (
             <Overlay
@@ -276,7 +276,7 @@ export default function BreakoutGame() {
   }
 
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-[#05060c] p-6 text-white">
+    <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-[#05060c] p-6 text-white select-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]">
       <header className="text-center">
         <p className="font-mono text-[10px] tracking-[0.4em] text-white/40">fujiki games</p>
         <h1 className="font-mono text-3xl font-bold tracking-[0.2em] text-cyan-300">SPIN RALLY</h1>

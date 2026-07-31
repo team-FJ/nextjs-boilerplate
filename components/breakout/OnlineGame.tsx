@@ -199,7 +199,7 @@ export default function OnlineGame() {
 
   if (status.step === "menu") {
     return (
-      <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-5 bg-[#05060c] p-6 text-white">
+      <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-5 bg-[#05060c] p-6 text-white select-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]">
         <header className="text-center">
           <p className="font-mono text-[10px] tracking-[0.4em] text-white/40">fujiki games</p>
           <h1 className="font-mono text-2xl font-bold tracking-[0.2em] text-cyan-300">
@@ -248,7 +248,7 @@ export default function OnlineGame() {
               placeholder="部屋コード"
               inputMode="text"
               autoCapitalize="characters"
-              className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-3 text-center font-mono text-sm tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-white/30"
+              className="flex-1 select-text [-webkit-user-select:text] rounded-lg border border-white/15 bg-white/5 px-3 py-3 text-center font-mono text-sm tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-white/30"
             />
             <button
               disabled={joinCode.length < 4}
@@ -277,7 +277,7 @@ export default function OnlineGame() {
   };
 
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center gap-1 bg-[#05060c] p-2 text-white">
+    <main className="flex min-h-dvh w-full flex-col items-center gap-1 bg-[#05060c] p-2 text-white select-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]">
       <div className="flex w-full max-w-md items-center justify-between px-1 font-mono text-[11px] text-white/70">
         <span>
           部屋 <b className="tracking-[0.2em] text-cyan-300">{code}</b>
@@ -308,7 +308,7 @@ export default function OnlineGame() {
           }}
           width={W}
           height={H}
-          className="h-full w-full rounded-lg border border-white/10"
+          className="h-full w-full touch-none rounded-lg border border-white/10"
         />
         {status.step !== "playing" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-lg bg-black/80 p-6 text-center">
