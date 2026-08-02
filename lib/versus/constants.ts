@@ -229,6 +229,18 @@ export const CPU_PROFILES: Record<CpuLevel, CpuProfile> = {
     greed: 1,
     energyFloor: 20,
   },
+  learned: {
+    // 学習型はニューラルネットが操作を決めるので、ここの数値は使われない。
+    // 重みが未学習のときに手書きの動きへ落とすための保険として ace 相当を置く。
+    label: "学習型",
+    description: "自己対戦で鍛えたCPU。手加減しない",
+    reaction: 0.07,
+    aimError: 7,
+    dodgeRange: 168,
+    hesitation: 0.03,
+    greed: 1,
+    energyFloor: 20,
+  },
 };
 
 export const ENEMY_DENSITY: Record<"low" | "normal" | "high", { min: number; max: number; ramp: number }> = {

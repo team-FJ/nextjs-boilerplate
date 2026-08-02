@@ -43,3 +43,8 @@ next-env.d.ts
 .breakout-sim.mjs
 .breakout-netsim.mjs
 dist/
+
+# CPU の学習で使う一時ファイル（学習結果は lib/versus/neuralWeights.ts に入る）
+.train.mjs
+.pick.mjs
+.islands/

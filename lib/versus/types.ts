@@ -22,7 +22,7 @@ export type VersusItemKind =
 
 export type BandEnemyId = "drifter" | "twin" | "sniper" | "armored" | "bomber";
 
-export type CpuLevel = "rookie" | "normal" | "veteran" | "ace";
+export type CpuLevel = "rookie" | "normal" | "veteran" | "ace" | "learned";
 
 /** ラウンドの敗者が選べる強化 */
 export type BoostId =

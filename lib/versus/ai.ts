@@ -1,6 +1,8 @@
 import { clamp, createRng, type Rng } from "../game/rng";
 import { CPU_PROFILES, VERSUS_WEAPONS } from "./constants";
 import type { VersusEngine } from "./engine";
+import { NeuralAi } from "./neural";
+import { NEURAL_WEIGHTS } from "./neuralWeights";
 import type { BoostId, CpuLevel, Fighter, FighterInput, PlayerId } from "./types";
 
 /**
@@ -37,7 +39,16 @@ export class VersusAi {
     this.level = level;
   }
 
+  /** 学習型はニューラルネットで動かす。重みが無いときは手書きへ落とす */
+  private neural: NeuralAi | null = null;
+  private get useNeural(): boolean {
+    if (this.level !== "learned" || NEURAL_WEIGHTS.length === 0) return false;
+    if (!this.neural) this.neural = new NeuralAi(this.id, NEURAL_WEIGHTS);
+    return true;
+  }
+
   update(engine: VersusEngine, dt: number): FighterInput {
+    if (this.useNeural && this.neural) return this.neural.update(engine);
     const me = engine.fighters[this.id - 1];
     const foe = engine.fighters[this.id === 1 ? 1 : 0];
     const profile = CPU_PROFILES[this.level];
