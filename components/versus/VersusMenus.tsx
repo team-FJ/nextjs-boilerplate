@@ -336,12 +336,23 @@ export function VersusResult({
   );
 }
 
-export function RoundBreak({ hud, onNext }: { hud: VersusHudSnapshot; onNext: () => void }) {
+export function RoundBreak({
+  hud,
+  onNext,
+  extra,
+  disabled = false,
+}: {
+  hud: VersusHudSnapshot;
+  onNext: () => void;
+  /** ラウンド間に差し込む内容（逆転強化の選択など） */
+  extra?: React.ReactNode;
+  disabled?: boolean;
+}) {
   const w = hud.lastRoundWinner;
   const winnerName = w ? hud.fighters[w - 1].name : null;
   const winnerColor = w ? hud.fighters[w - 1].color : "#ccc";
   return (
-    <div className={`${panel} items-center justify-center gap-4`}>
+    <div className={`${panel} items-center justify-center gap-4 overflow-y-auto py-4`}>
       <div className="text-center">
         <div className="font-mono text-[11px] tracking-[0.4em] text-white/50">
           ROUND {hud.round} 終了
@@ -358,8 +369,9 @@ export function RoundBreak({ hud, onNext }: { hud: VersusHudSnapshot; onNext: ()
           <span style={{ color: hud.fighters[1].color }}>{hud.fighters[1].wins}</span>
         </div>
       </div>
-      <button className={btnPrimary} onClick={onNext}>
-        次のラウンドへ ▶
+      {extra && <div className="w-full max-w-[320px] px-4">{extra}</div>}
+      <button className={btnPrimary} onClick={onNext} disabled={disabled}>
+        {disabled ? "強化を選んでください" : "次のラウンドへ ▶"}
       </button>
     </div>
   );

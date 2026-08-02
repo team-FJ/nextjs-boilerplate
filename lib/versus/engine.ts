@@ -24,6 +24,7 @@ import {
   RAPID_DURATION,
   RAPID_MULTIPLIER,
   RAPID_REGEN_BONUS,
+  BOOST_PICK_TIME,
   ROUND_END_TIME,
   ROUND_TIME,
   SLOW_DURATION,
@@ -35,10 +36,13 @@ import {
   VERSUS_WEAPONS,
   WEAPON_DURATION,
 } from "./constants";
+import { applyBoosts, GUARD_REDUCTION, offerBoosts } from "./boosts";
 import { getCourse, wallsFor, zonesFor } from "./courses";
 import { BAND_ENEMIES, pickEnemyType } from "./enemies";
 import type {
   BandEnemy,
+  BoostId,
+  PendingBoost,
   Fighter,
   FighterInput,
   PlayerId,
@@ -88,6 +92,8 @@ export class VersusEngine {
   roundEndTimer = 0;
   lastRoundWinner: PlayerId | 0 | null = null;
   matchWinner: PlayerId | 0 | null = null;
+  /** ラウンドの敗者に提示中の強化。選ぶまで次のラウンドへ進まない */
+  pendingBoost: PendingBoost | null = null;
   banner: string | null = null;
 
   shake = 0;
@@ -173,6 +179,7 @@ export class VersusEngine {
       kills: 0,
       pickups: 0,
       alive: true,
+      boosts: [],
     };
   }
 
@@ -198,6 +205,7 @@ export class VersusEngine {
     this.seed = seed >>> 0;
     this.applyCourse();
     this.fighters = [this.createFighter(1), this.createFighter(2)];
+    this.pendingBoost = null;
     this.round = 1;
     this.matchWinner = null;
     this.lastRoundWinner = null;
@@ -210,9 +218,13 @@ export class VersusEngine {
     // 強化状態はラウンドごとにリセットして毎回フラットな撃ち合いから始める
     for (const f of this.fighters) {
       const wins = f.wins;
+      const boosts = f.boosts;
       const fresh = this.createFighter(f.id);
       fresh.wins = wins;
+      fresh.boosts = boosts;
       Object.assign(f, fresh);
+      // 逆転強化はラウンドをまたいで残るので、リセットの後に効かせ直す
+      applyBoosts(f);
     }
     this.bullets = [];
     this.enemies = [];
@@ -283,6 +295,10 @@ export class VersusEngine {
         break;
       case "roundEnd": {
         this.roundEndTimer -= dt;
+        if (this.pendingBoost) {
+          this.pendingBoost.timer -= dt;
+          if (this.pendingBoost.timer <= 0) this.autoPickBoost();
+        }
         this.updateBullets(dt);
         this.updateParticles(dt);
         break;
@@ -439,7 +455,8 @@ export class VersusEngine {
       this.spawnParticles(f.x, f.y, 8, "#7ec8ff", "ring");
       return;
     }
-    f.hp -= this.overdrive ? dmg * OVERDRIVE_DMG : dmg;
+    const guarded = f.boosts.includes("guard") ? dmg * (1 - GUARD_REDUCTION) : dmg;
+    f.hp -= this.overdrive ? guarded * OVERDRIVE_DMG : guarded;
     f.hitFlash = 0.14;
     // 無敵時間を短くして、拡散弾やパワーアップ分の手数がダメージに反映されるようにする
     f.invincible = 0.15;
@@ -483,7 +500,45 @@ export class VersusEngine {
     } else {
       this.setPhase("roundEnd");
       this.audio.play("warning");
+      this.offerComeback(winner);
     }
+  }
+
+  /**
+   * 負けた側にだけ強化の選択肢を出す。
+   * 勝った側は何ももらえないので、強化は差を縮める方向にしか働かない。
+   */
+  private offerComeback(winner: PlayerId | 0) {
+    this.pendingBoost = null;
+    if (winner === 0) return; // 引き分けたラウンドでは配らない
+    const loser: PlayerId = winner === 1 ? 2 : 1;
+    const options = offerBoosts(this.fighters[loser - 1].boosts, 3, this.rnd);
+    if (options.length === 0) return; // 取り尽くしていたら何も出さない
+    this.pendingBoost = { player: loser, options, timer: BOOST_PICK_TIME };
+  }
+
+  /** 提示中の強化を選ぶ。選択権のないプレイヤーからの指定は無視する */
+  pickBoost(player: PlayerId, id: BoostId): boolean {
+    const pending = this.pendingBoost;
+    if (!pending || pending.player !== player) return false;
+    if (!pending.options.includes(id)) return false;
+    const f = this.fighters[player - 1];
+    if (!f.boosts.includes(id)) f.boosts.push(id);
+    this.pendingBoost = null;
+    this.audio.play("powerup");
+    return true;
+  }
+
+  /** 制限時間内に選ばれなかったときは先頭の候補を自動で取る */
+  private autoPickBoost() {
+    const pending = this.pendingBoost;
+    if (!pending) return;
+    this.pickBoost(pending.player, pending.options[0]);
+  }
+
+  /** 次のラウンドへ進んでよいか（強化の選択待ちなら待つ） */
+  get waitingForBoost(): boolean {
+    return this.pendingBoost !== null;
   }
 
   // ---------------------------------------------------------------- 中立ゾーンの敵

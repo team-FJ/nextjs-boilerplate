@@ -1,7 +1,7 @@
 import { clamp } from "../../game/rng";
 import { BASE_SPEED, SLOW_FACTOR, SPEED_STEP, V_W } from "../constants";
 import { getCourse, zonesFor } from "../courses";
-import type { FighterInput, PlayerId, VersusConfig, VersusPhase } from "../types";
+import type { BoostId, FighterInput, PlayerId, VersusConfig, VersusPhase } from "../types";
 import {
   encodeInput,
   INPUT_REDUNDANCY,
@@ -41,6 +41,8 @@ export interface ClientView {
   items: SnapItem[];
   /** 壁の残り耐久。位置と大きさはコース定義から引く */
   wallHp: number[];
+  /** 敗者に提示中の強化（選択待ちのあいだだけ） */
+  boostOffer: { player: PlayerId; options: BoostId[]; timer: number } | null;
 }
 
 interface PendingInput {
@@ -114,6 +116,11 @@ export class NetClient {
 
   leave() {
     this.send({ t: "leave" });
+  }
+
+  /** 逆転強化を選ぶ。取りこぼしを防ぐため、サーバーが受け付けるまで呼び直してよい */
+  pickBoost(id: BoostId) {
+    this.send({ t: "boost", id });
   }
 
   // ---------------------------------------------------------------- 受信
@@ -336,6 +343,7 @@ export class NetClient {
       enemies: mergeById(older.snap.e, newer.snap.e),
       items: mergeById(older.snap.it, newer.snap.it),
       wallHp: latest.wl ?? [],
+      boostOffer: latest.bo ? { player: latest.bo.p, options: latest.bo.o, timer: latest.bo.t } : null,
     };
   }
 }

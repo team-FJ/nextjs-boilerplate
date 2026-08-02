@@ -24,6 +24,25 @@ export type BandEnemyId = "drifter" | "twin" | "sniper" | "armored" | "bomber";
 
 export type CpuLevel = "rookie" | "normal" | "veteran" | "ace";
 
+/** ラウンドの敗者が選べる強化 */
+export type BoostId =
+  | "armor"
+  | "regen"
+  | "power"
+  | "swift"
+  | "barrier"
+  | "payload"
+  | "focus"
+  | "guard";
+
+/** 敗者に提示中の選択肢 */
+export interface PendingBoost {
+  player: PlayerId;
+  options: BoostId[];
+  /** 選ばれないまま試合が止まらないよう、残り時間が尽きたら自動で決める */
+  timer: number;
+}
+
 export type VersusMode = "cpu" | "local";
 
 export type CourseId =
@@ -145,6 +164,8 @@ export interface Fighter {
   kills: number;
   pickups: number;
   alive: boolean;
+  /** 取得済みの逆転強化。ラウンドをまたいで残る */
+  boosts: BoostId[];
 }
 
 export interface VersusBullet {

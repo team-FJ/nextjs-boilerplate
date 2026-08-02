@@ -13,8 +13,9 @@ import { buildRenderable, toFieldInput } from "@/lib/versus/net/viewAdapter";
 import { VersusSession, type SessionRole } from "@/lib/versus/net/session";
 import type { TransportKind, TransportState } from "@/lib/versus/net/transport";
 import { VersusRenderer } from "@/lib/versus/render";
-import type { PlayerId, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
+import type { BoostId, PlayerId, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
 
+import { BoostPick } from "./BoostPick";
 import { CourseSelect } from "./CourseSelect";
 import { TouchPad } from "./TouchPad";
 import { VersusHud } from "./VersusHud";
@@ -79,6 +80,7 @@ export default function OnlineVersusGame() {
   const [winner, setWinner] = useState<PlayerId | 0 | null>(null);
   const [rtt, setRtt] = useState(0);
   const [config, setConfig] = useState<VersusConfig | null>(null);
+  const [boost, setBoost] = useState<{ player: PlayerId; options: BoostId[]; timer: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // ---- 接続 ---------------------------------------------------------------
@@ -175,6 +177,7 @@ export default function OnlineVersusGame() {
           hudAcc = 0;
           setHud(snapshot);
           setRtt(Math.round(client.rttMs));
+          setBoost(view.boostOffer);
         }
       } else {
         ctx.fillStyle = "#05060c";
@@ -260,6 +263,18 @@ export default function OnlineVersusGame() {
         {started && (
           <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[9px] text-white/35">
             {connection === "open" ? `${rtt}ms` : STATE_LABEL[connection]}
+          </div>
+        )}
+
+        {/* ラウンド間の逆転強化。負けた側にだけ選択肢が出る */}
+        {started && winner === null && boost && (
+          <div className="absolute inset-x-0 bottom-0 z-20 p-3">
+            <BoostPick
+              options={boost.options}
+              timer={boost.timer}
+              mine={boost.player === you}
+              onPick={(id) => sessionRef.current?.client.pickBoost(id)}
+            />
           </div>
         )}
 

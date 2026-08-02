@@ -12,10 +12,18 @@ import { DEFAULT_COURSE } from "@/lib/versus/courses";
 import { VersusEngine } from "@/lib/versus/engine";
 import { VersusInput } from "@/lib/versus/input";
 import { VersusRenderer } from "@/lib/versus/render";
-import { EMPTY_INPUT, type VersusConfig, type VersusHudSnapshot, type VersusPhase } from "@/lib/versus/types";
+import {
+  EMPTY_INPUT,
+  type BoostId,
+  type PendingBoost,
+  type VersusConfig,
+  type VersusHudSnapshot,
+  type VersusPhase,
+} from "@/lib/versus/types";
 
 import { TouchPad } from "./TouchPad";
 import { VersusHud } from "./VersusHud";
+import { BoostPick } from "./BoostPick";
 import { RoundBreak, VersusHowTo, VersusMenu, VersusPause, VersusResult } from "./VersusMenus";
 import { VersusTouchControls } from "./VersusTouchControls";
 
@@ -62,6 +70,7 @@ export default function VersusGame() {
   const [config, setConfig] = useState<VersusConfig>(DEFAULT_CONFIG);
   const [phase, setPhase] = useState<VersusPhase>("menu");
   const [hud, setHud] = useState<VersusHudSnapshot | null>(null);
+  const [boost, setBoost] = useState<PendingBoost | null>(null);
   const [showHowTo, setShowHowTo] = useState(false);
 
   useEffect(() => {
@@ -112,6 +121,12 @@ export default function VersusGame() {
       if (hudAcc > 0.08) {
         hudAcc = 0;
         setHud(engine.getHud());
+        const pending = engine.pendingBoost;
+        setBoost(pending ? { ...pending, options: [...pending.options] } : null);
+        // CPU が負けた側のときは、こちらの操作を待たずに自分で選ばせる
+        if (pending && pending.player === 2 && engine.config.mode === "cpu") {
+          engine.pickBoost(2, ai.pickBoost(pending.options));
+        }
       }
     };
     raf = requestAnimationFrame(frame);
@@ -138,9 +153,21 @@ export default function VersusGame() {
   }, [ai, audio, config, engine, input]);
 
   const handleNextRound = useCallback(() => {
+    // 強化の選択が残っているうちは進めない
+    if (engine.waitingForBoost) return;
     audio.play("confirm");
     engine.nextRound();
   }, [audio, engine]);
+
+  const handlePickBoost = useCallback(
+    (id: BoostId) => {
+      const pending = engine.pendingBoost;
+      if (!pending) return;
+      engine.pickBoost(pending.player, id);
+      setBoost(null);
+    },
+    [engine],
+  );
 
   const handleQuit = useCallback(() => {
     audio.play("cancel");
@@ -189,7 +216,22 @@ export default function VersusGame() {
             onQuit={handleQuit}
           />
         ) : phase === "roundEnd" && hud ? (
-          <RoundBreak hud={hud} onNext={handleNextRound} />
+          <RoundBreak
+            hud={hud}
+            onNext={handleNextRound}
+            disabled={boost !== null}
+            extra={
+              boost ? (
+                <BoostPick
+                  options={boost.options}
+                  timer={boost.timer}
+                  onPick={handlePickBoost}
+                  // CPU戦で相手が負けたときは相手が選ぶので、こちらは待つだけ
+                  mine={boost.player === 1 || config.mode === "local"}
+                />
+              ) : null
+            }
+          />
         ) : phase === "matchEnd" && hud ? (
           <VersusResult hud={hud} onRematch={startMatch} onQuit={handleQuit} />
         ) : null}

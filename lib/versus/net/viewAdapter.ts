@@ -94,6 +94,7 @@ export function buildRenderable(
       kills: v.kl,
       pickups: v.pk,
       alive: v.al === 1,
+      boosts: v.bs ?? [],
     };
   };
 

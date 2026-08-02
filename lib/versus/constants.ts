@@ -45,6 +45,8 @@ export const OVERDRIVE_AT = 20;
 export const OVERDRIVE_DMG = 1.6;
 export const COUNTDOWN_TIME = 3.2;
 export const ROUND_END_TIME = 2.6;
+/** 逆転強化を選べる時間。過ぎたら自動で決まる */
+export const BOOST_PICK_TIME = 12;
 
 export interface VersusWeaponSpec {
   label: string;

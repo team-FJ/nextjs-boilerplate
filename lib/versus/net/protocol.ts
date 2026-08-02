@@ -8,7 +8,7 @@
  */
 
 import type { VersusEngine } from "../engine";
-import type { FighterInput, PlayerId, VersusConfig, VersusPhase, VersusWeapon } from "../types";
+import type { BoostId, FighterInput, PlayerId, VersusConfig, VersusPhase, VersusWeapon } from "../types";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -77,6 +77,8 @@ export interface SnapFighter {
   al: 0 | 1;
   kl: number;
   pk: number;
+  /** 取得済みの逆転強化 */
+  bs: BoostId[];
 }
 
 export interface SnapBullet {
@@ -121,6 +123,8 @@ export interface Snapshot {
   it: SnapItem[];
   /** 壁の残り耐久。並び順はコース定義から決まるので位置や大きさは送らなくてよい */
   wl: number[];
+  /** 敗者に提示中の強化。選択待ちのあいだだけ入る */
+  bo: { p: PlayerId; o: BoostId[]; t: number } | null;
   /** 各プレイヤーの「ここまで処理した入力シーケンス」。予測の巻き戻しに使う */
   ack: [number, number];
 }
@@ -163,11 +167,15 @@ export function captureSnapshot(engine: VersusEngine, tick: number, ack: [number
       al: f.alive ? 1 : 0,
       kl: f.kills,
       pk: f.pickups,
+      bs: f.boosts,
     };
   };
 
   return {
     wl: engine.walls.map((w) => q1(Math.max(0, w.hp))),
+    bo: engine.pendingBoost
+      ? { p: engine.pendingBoost.player, o: engine.pendingBoost.options, t: q1(engine.pendingBoost.timer) }
+      : null,
     tk: tick,
     ph: engine.phase,
     rd: engine.round,
@@ -207,7 +215,8 @@ export type ClientMessage =
   /** hist は seq-1, seq-2 ... の入力。1パケット落ちても次のパケットで穴埋めできる */
   | { t: "input"; seq: number; mask: number; hist?: number[] }
   | { t: "ping"; id: number; sent: number }
-  | { t: "leave" };
+  | { t: "leave" }
+  | { t: "boost"; id: BoostId };
 
 export type ServerMessage =
   | { t: "joined"; you: PlayerId; room: string; config: VersusConfig; peer: boolean }
