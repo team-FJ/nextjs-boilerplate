@@ -7,13 +7,16 @@ import { FIXED_DT, MAX_FRAME_SKIP } from "@/lib/game/constants";
 import { loadSettings } from "@/lib/game/storage";
 import type { Settings } from "@/lib/game/types";
 import { V_H, V_W } from "@/lib/versus/constants";
+import { DEFAULT_COURSE } from "@/lib/versus/courses";
 import { VersusInput } from "@/lib/versus/input";
 import { buildRenderable, toFieldInput } from "@/lib/versus/net/viewAdapter";
 import { VersusSession, type SessionRole } from "@/lib/versus/net/session";
 import type { TransportKind, TransportState } from "@/lib/versus/net/transport";
 import { VersusRenderer } from "@/lib/versus/render";
-import type { PlayerId, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
+import type { BoostId, PlayerId, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
 
+import { BoostPick } from "./BoostPick";
+import { CourseSelect } from "./CourseSelect";
 import { TouchPad } from "./TouchPad";
 import { VersusHud } from "./VersusHud";
 
@@ -77,6 +80,7 @@ export default function OnlineVersusGame() {
   const [winner, setWinner] = useState<PlayerId | 0 | null>(null);
   const [rtt, setRtt] = useState(0);
   const [config, setConfig] = useState<VersusConfig | null>(null);
+  const [boost, setBoost] = useState<{ player: PlayerId; options: BoostId[]; timer: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // ---- 接続 ---------------------------------------------------------------
@@ -166,13 +170,14 @@ export default function OnlineVersusGame() {
       const client = session?.client;
       const view = client?.getView(now) ?? null;
       if (view && client?.you) {
-        const { renderable, hud: snapshot } = buildRenderable(view, client.you, settings);
+        const { renderable, hud: snapshot } = buildRenderable(view, client.you, settings, client.config?.course);
         renderer.draw(ctx, renderable, elapsed);
         hudAcc += elapsed;
         if (hudAcc > 0.08) {
           hudAcc = 0;
           setHud(snapshot);
           setRtt(Math.round(client.rttMs));
+          setBoost(view.boostOffer);
         }
       } else {
         ctx.fillStyle = "#05060c";
@@ -258,6 +263,18 @@ export default function OnlineVersusGame() {
         {started && (
           <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[9px] text-white/35">
             {connection === "open" ? `${rtt}ms` : STATE_LABEL[connection]}
+          </div>
+        )}
+
+        {/* ラウンド間の逆転強化。負けた側にだけ選択肢が出る */}
+        {started && winner === null && boost && (
+          <div className="absolute inset-x-0 bottom-0 z-20 p-3">
+            <BoostPick
+              options={boost.options}
+              timer={boost.timer}
+              mine={boost.player === you}
+              onPick={(id) => sessionRef.current?.client.pickBoost(id)}
+            />
           </div>
         )}
 
@@ -412,6 +429,19 @@ export default function OnlineVersusGame() {
                         ))}
                       </div>
                     </div>
+                    <div className="border-t border-white/10 pt-2">
+                      <div className="mb-1 text-[11px]">コース</div>
+                      <CourseSelect
+                        value={config?.course ?? DEFAULT_COURSE}
+                        onChange={(course) => sessionRef.current?.setConfig({ course })}
+                      />
+                    </div>
+                  </div>
+                )}
+                {!isHost && config && (
+                  <div className="rounded border border-white/15 bg-white/[0.03] p-2">
+                    <div className="mb-1 text-[11px] text-white/60">コース（進行役が選びます）</div>
+                    <CourseSelect value={config.course} onChange={() => {}} disabled />
                   </div>
                 )}
 

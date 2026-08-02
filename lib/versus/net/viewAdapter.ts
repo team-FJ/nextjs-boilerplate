@@ -1,9 +1,13 @@
 import type { Settings } from "../../game/types";
 import { FIGHTER_H, FIGHTER_W, PLAYER_COLORS, V_H, V_W, VERSUS_WEAPONS } from "../constants";
+import { getCourse, wallsFor, zonesFor } from "../courses";
 import { BAND_ENEMIES } from "../enemies";
 import type { RenderableVersus } from "../render";
 import type {
   BandEnemy,
+  CourseId,
+  CourseZones,
+  VersusWall,
   BandEnemyId,
   Fighter,
   FighterInput,
@@ -46,6 +50,7 @@ export function buildRenderable(
   view: ClientView,
   you: PlayerId,
   settings: Settings,
+  courseId?: CourseId,
 ): { renderable: RenderableVersus; hud: VersusHudSnapshot } {
   const flip = you === 2;
   const fx = (x: number) => (flip ? V_W - x : x);
@@ -89,6 +94,7 @@ export function buildRenderable(
       kills: v.kl,
       pickups: v.pk,
       alive: v.al === 1,
+      boosts: v.bs ?? [],
     };
   };
 
@@ -135,6 +141,21 @@ export function buildRenderable(
     };
   });
 
+  // 壁の位置と大きさはコース定義から作り、残り耐久だけスナップショットから取る
+  const course = getCourse(courseId);
+  const walls: VersusWall[] = wallsFor(course).map((w, index) => ({
+    ...w,
+    index,
+    maxHp: w.hp,
+    hp: view.wallHp[index] ?? w.hp,
+    hitFlash: 0,
+    x: fx(w.x),
+    y: fy(w.y),
+  }));
+
+  // 陣地はフィールドの上下対称性から、反転しても同じ座標になる（上陣と下陣が入れ替わるだけ）
+  const zones: CourseZones = zonesFor(course);
+
   const items: VersusItem[] = view.items.map((i) => ({
     id: i.i,
     kind: i.k as VersusItemKind,
@@ -163,6 +184,8 @@ export function buildRenderable(
     enemies,
     items,
     particles: [],
+    zones,
+    walls,
   };
 
   // HUD は「自分が下」に合わせて並べ替える

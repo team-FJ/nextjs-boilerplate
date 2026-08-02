@@ -1,4 +1,4 @@
-import type { Difficulty, Settings, ThemeName } from "./types";
+import type { CarryPolicy, Difficulty, Settings, ThemeName } from "./types";
 
 /** 論理解像度（縦画面）。実画面へは CSS でスケールする */
 export const VIEW_W = 480;
@@ -38,9 +38,60 @@ export interface DifficultyProfile {
   description: string;
 }
 
+/**
+ * ステージ間で強化をどれだけ持ち越すか。
+ *
+ * 全部持ち越すと、9面あたりで強さが頭打ちになり中盤が消化試合になる
+ * （通しで計測したところ、9〜13面が7〜32秒・被弾0で終わっていた）。
+ * 難易度が上のものほど持ち越しを絞って、終盤まで手応えが残るようにする。
+ */
+export const CARRY_POLICY: Record<Difficulty, CarryPolicy> = {
+  easy: {
+    weapon: true,
+    powerDecay: 0,
+    optionDecay: 0,
+    keepSpeed: true,
+    keepShield: true,
+    bombs: "keep",
+    healOnStage: true,
+  },
+  normal: {
+    weapon: true,
+    powerDecay: 0,
+    optionDecay: 0,
+    keepSpeed: true,
+    keepShield: true,
+    bombs: "keep",
+    healOnStage: true,
+  },
+  hard: {
+    // 武装とパワーは残し、オプションポッドを1基だけ返す。
+    // 計測すると、火力の伸びを止めているのは主にポッドの数だった。
+    // パワーまで削ると手数が足りず、進めなくなって難易度調整にならない。
+    // シールドとボムも持ち越さないので、毎ステージ拾い直す動機が生まれる。
+    weapon: true,
+    powerDecay: 0,
+    optionDecay: 1,
+    keepSpeed: true,
+    keepShield: false,
+    bombs: "one",
+    healOnStage: true,
+  },
+  insane: {
+    // 武装は初期化。パワーとポッドも大きく返し、毎ステージ組み直す前提にする。
+    weapon: false,
+    powerDecay: 1,
+    optionDecay: 2,
+    keepSpeed: true,
+    keepShield: false,
+    bombs: "one",
+    healOnStage: true,
+  },
+};
+
 export const DIFFICULTY: Record<Difficulty, DifficultyProfile> = {
   easy: {
-    label: "EASY",
+    label: "簡単",
     enemyHp: 0.75,
     enemySpeed: 0.8,
     enemyFire: 0.6,
@@ -48,10 +99,10 @@ export const DIFFICULTY: Record<Difficulty, DifficultyProfile> = {
     itemChance: 1.5,
     scoreMul: 0.8,
     startLives: 5,
-    description: "ゆっくり・弾少なめ。初めての人向け",
+    description: "ゆっくり・弾少なめ。強化はすべて次の面へ引き継ぐ",
   },
   normal: {
-    label: "NORMAL",
+    label: "普通",
     enemyHp: 1,
     enemySpeed: 1,
     enemyFire: 1,
@@ -59,10 +110,10 @@ export const DIFFICULTY: Record<Difficulty, DifficultyProfile> = {
     itemChance: 1,
     scoreMul: 1,
     startLives: 3,
-    description: "標準バランス。まずはここから",
+    description: "標準バランス。強化はすべて次の面へ引き継ぐ",
   },
   hard: {
-    label: "HARD",
+    label: "難しい",
     enemyHp: 1.35,
     enemySpeed: 1.18,
     enemyFire: 1.45,
@@ -70,10 +121,10 @@ export const DIFFICULTY: Record<Difficulty, DifficultyProfile> = {
     itemChance: 0.8,
     scoreMul: 1.4,
     startLives: 3,
-    description: "弾幕が厚い。オプション運用が鍵",
+    description: "弾幕が厚い。次の面へ移るとポッド1基・シールド・ボムを失う",
   },
   insane: {
-    label: "INSANE",
+    label: "極限",
     enemyHp: 1.8,
     enemySpeed: 1.35,
     enemyFire: 2,
@@ -81,7 +132,7 @@ export const DIFFICULTY: Record<Difficulty, DifficultyProfile> = {
     itemChance: 0.6,
     scoreMul: 2,
     startLives: 2,
-    description: "情け無用。避けて撃って祈れ",
+    description: "情け無用。武装も初期化され、毎面ゼロから組み直す",
   },
 };
 

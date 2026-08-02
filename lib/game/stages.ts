@@ -30,7 +30,7 @@ const stage = (
   hint: extra.hint ?? "",
 });
 
-/** 全30ステージ。5の倍数はボス戦 */
+/** 全45ステージ。5の倍数はボス戦 */
 export const STAGES: StageDef[] = [
   stage(
     "初接触",
@@ -157,6 +157,68 @@ export const STAGES: StageDef[] = [
   stage("超越体", "void", [
     { formation: "grid", rows: 3, cols: 10, types: ["elite", "tank", "turret"], speed: 1.3 },
   ], { boss: "overmind", itemChance: 0.4, hint: "5段階に変化する。諦めるな" }),
+
+  // ---- ここから追加ステージ（31〜45）。強化の伸びに合わせて手数と密度を上げる ----
+  stage("残響領域", "nebula", [
+    { formation: "ring", rows: 4, cols: 10, types: ["ghost", "splitter", "gunner"], speed: 1.2 },
+    { formation: "checker", rows: 5, cols: 10, types: ["ghost", "elite", "turret"], fireRate: 1.4 },
+  ], { hazard: "nebula", hint: "視界が悪い。弾筋を覚えて動け" }),
+  stage("鉄壁小隊", "cyber", [
+    { formation: "wedge", rows: 4, cols: 10, types: ["tank", "turret"], speed: 0.95, fireRate: 1.35 },
+    { formation: "grid", rows: 5, cols: 10, types: ["tank", "healer", "elite"], speed: 1 },
+  ], { hint: "ヒーラーを先に落とさないと硬さが戻る" }),
+  stage("流星雨", "magma", [
+    { formation: "scatter", rows: 5, cols: 10, types: ["kamikaze", "mine"], speed: 1.4, diveRate: 1.9 },
+    { formation: "arc", rows: 4, cols: 10, types: ["bomber", "kamikaze", "elite"], diveRate: 1.7 },
+  ], { hazard: "meteor", itemChance: 0.2, hint: "突撃と落石が同時に来る。下がりすぎるな" }),
+  stage("凍てつく罠", "ice", [
+    { formation: "cross", rows: 5, cols: 10, types: ["mine", "turret", "ghost"], speed: 1.15 },
+    { formation: "diamond", rows: 5, cols: 10, types: ["tank", "gunner", "splitter"], fireRate: 1.4 },
+  ], { hazard: "debris", hint: "機雷を先に処理して退路を作れ" }),
+  stage("再来する母艦", "space", [
+    { formation: "grid", rows: 3, cols: 10, types: ["elite", "gunner"], speed: 1.25 },
+  ], { boss: "carrier", itemChance: 0.36, hint: "初戦より砲門が増えている" }),
+
+  stage("汚染前線", "toxic", [
+    { formation: "columns", rows: 5, cols: 10, types: ["splitter", "bomber", "gunner"], fireRate: 1.4 },
+    { formation: "ring", rows: 5, cols: 10, types: ["splitter", "healer", "elite"], speed: 1.25 },
+  ], { hazard: "nebula", hint: "分裂前に一掃できる武装が有利" }),
+  stage("軌道要塞", "cyber", [
+    { formation: "checker", rows: 5, cols: 10, types: ["turret", "tank", "elite"], fireRate: 1.45 },
+    { formation: "grid", rows: 5, cols: 10, types: ["turret", "gunner", "bomber"], fireRate: 1.5 },
+  ], { hazard: "laserGrid", hint: "砲台の斉射に合わせて左右へ抜ける" }),
+  stage("極光の壁", "ice", [
+    { formation: "arc", rows: 5, cols: 10, types: ["ghost", "elite", "tank"], speed: 1.3 },
+    { formation: "vshape", rows: 5, cols: 10, types: ["ghost", "kamikaze", "turret"], diveRate: 1.7 },
+  ], { hazard: "solarWind", hint: "押し流される方向を計算に入れて避ける" }),
+  stage("熱核炉心", "magma", [
+    { formation: "diamond", rows: 5, cols: 10, types: ["bomber", "tank", "elite"], fireRate: 1.5 },
+    { formation: "scatter", rows: 5, cols: 10, types: ["mine", "kamikaze", "splitter"], speed: 1.4 },
+  ], { hazard: "meteor", hint: "爆風の範囲は見た目より広い" }),
+  stage("双牙・再戦", "cyber", [
+    { formation: "wedge", rows: 3, cols: 10, types: ["elite", "turret", "tank"], speed: 1.3 },
+  ], { boss: "twinFang", itemChance: 0.36, hint: "片方を残すと反撃が激化する" }),
+
+  stage("虚無の淵", "void", [
+    { formation: "ring", rows: 5, cols: 10, types: ["ghost", "elite", "mine"], speed: 1.35 },
+    { formation: "cross", rows: 5, cols: 10, types: ["ghost", "splitter", "turret"], fireRate: 1.5 },
+  ], { hazard: "nebula", hint: "透過する敵は撃てる瞬間が限られる" }),
+  stage("殲滅包囲", "sunrise", [
+    { formation: "ring", rows: 5, cols: 10, types: ["elite", "gunner", "bomber"], fireRate: 1.5 },
+    { formation: "grid", rows: 5, cols: 10, types: ["tank", "elite", "healer", "turret"], speed: 1.2 },
+  ], { hazard: "solarWind", hint: "囲まれる前に一角を崩せ" }),
+  stage("超高速戦", "cyber", [
+    { formation: "wedge", rows: 5, cols: 10, types: ["kamikaze", "elite"], speed: 1.5, diveRate: 2 },
+    { formation: "scatter", rows: 5, cols: 10, types: ["kamikaze", "splitter", "gunner"], speed: 1.45 },
+  ], { hint: "スピードを上げていないと振り切られる" }),
+  stage("最終防衛線", "space", [
+    { formation: "grid", rows: 5, cols: 10, types: ["tank", "turret", "elite", "healer"], fireRate: 1.5 },
+    { formation: "diamond", rows: 5, cols: 10, types: ["bomber", "ghost", "splitter"], speed: 1.35 },
+    { formation: "arc", rows: 4, cols: 10, types: ["kamikaze", "mine", "elite"], diveRate: 1.9 },
+  ], { hazard: "laserGrid", itemChance: 0.24, hint: "ここを抜ければ最後の敵だ" }),
+  stage("超越体・完全", "void", [
+    { formation: "grid", rows: 3, cols: 10, types: ["elite", "tank", "turret", "ghost"], speed: 1.35 },
+  ], { boss: "overmind", itemChance: 0.42, hint: "全段階が強化されている。総力戦" }),
 ];
 
 export const STAGE_COUNT = STAGES.length;

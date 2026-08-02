@@ -1,5 +1,6 @@
 import { SilentAudio } from "../../game/audio";
 import { DEFAULT_SETTINGS } from "../../game/constants";
+import { DEFAULT_COURSE } from "../courses";
 import { VersusEngine } from "../engine";
 import { EMPTY_INPUT, type FighterInput, type PlayerId, type VersusConfig } from "../types";
 import {
@@ -54,6 +55,7 @@ const DEFAULT_CONFIG: VersusConfig = {
   cpuLevel: "normal",
   roundsToWin: 2,
   enemyDensity: "normal",
+  course: DEFAULT_COURSE,
 };
 
 /**
@@ -209,6 +211,9 @@ export class GameRoom {
       case "ping":
         this.hooks.send(player, { t: "pong", id: message.id, sent: message.sent });
         break;
+      case "boost":
+        this.engine.pickBoost(player, message.id);
+        break;
       case "leave":
         this.disconnect(player);
         break;
@@ -276,7 +281,12 @@ export class GameRoom {
       steps += 1;
 
       // ラウンド間は自動で進める（片方が押さないと進まない状態を作らない）
-      if (this.engine.phase === "roundEnd" && this.engine.roundEndTimer <= 0) {
+      // 強化の選択待ちのあいだは次のラウンドへ進めない（選ぶ時間を作る）
+      if (
+        this.engine.phase === "roundEnd" &&
+        this.engine.roundEndTimer <= 0 &&
+        !this.engine.waitingForBoost
+      ) {
         this.engine.nextRound();
       }
       if (this.engine.phase === "matchEnd" && !this.finished) {

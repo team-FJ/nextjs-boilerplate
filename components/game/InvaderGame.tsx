@@ -9,7 +9,7 @@ import { InputManager } from "@/lib/game/input";
 import { Renderer } from "@/lib/game/render";
 import { STAGE_COUNT } from "@/lib/game/stages";
 import { loadProgress, loadSettings, saveSettings } from "@/lib/game/storage";
-import type { HudSnapshot, Phase, Progress, Settings } from "@/lib/game/types";
+import type { HudSnapshot, Phase, Progress, RogueRun, RogueUpgradeId, Settings } from "@/lib/game/types";
 
 import { Hud } from "./Hud";
 import {
@@ -23,6 +23,7 @@ import {
   TitleScreen,
 } from "./Menus";
 import { TouchControls } from "./TouchControls";
+import { UpgradePick } from "./UpgradePick";
 
 type MenuKind = "none" | "stageSelect" | "options" | "howto";
 
@@ -64,6 +65,7 @@ export default function InvaderGame() {
   const [phase, setPhase] = useState<Phase>("title");
   const [menu, setMenu] = useState<MenuKind>("none");
   const [hud, setHud] = useState<HudSnapshot | null>(null);
+  const [run, setRun] = useState<RogueRun | null>(null);
 
   // ---- 入力の接続とメインループ ---------------------------------------------
   useEffect(() => {
@@ -122,6 +124,7 @@ export default function InvaderGame() {
       if (hudAcc > 0.08) {
         hudAcc = 0;
         setHud(engine.getHud());
+        setRun(engine.run.active ? { ...engine.run, offer: [...engine.run.offer], taken: { ...engine.run.taken } } : null);
       }
     };
     raf = requestAnimationFrame(frame);
@@ -159,9 +162,26 @@ export default function InvaderGame() {
   );
 
   const handleNext = useCallback(() => {
+    // ローグライトでは強化を選ぶまで進めない
+    if (engine.awaitingUpgrade) return;
     audio.play("confirm");
     engine.nextStage();
   }, [audio, engine]);
+
+  const startRogue = useCallback(() => {
+    audio.init();
+    audio.play("confirm");
+    setMenu("none");
+    engine.startRogueRun();
+  }, [audio, engine]);
+
+  const handlePickUpgrade = useCallback(
+    (id: RogueUpgradeId) => {
+      engine.pickUpgrade(id);
+      setRun({ ...engine.run, offer: [...engine.run.offer], taken: { ...engine.run.taken } });
+    },
+    [engine],
+  );
 
   const handleRetry = useCallback(() => {
     audio.play("confirm");
@@ -234,6 +254,7 @@ export default function InvaderGame() {
             onStageSelect={() => setMenu("stageSelect")}
             onOptions={() => setMenu("options")}
             onHowTo={() => setMenu("howto")}
+            onRogue={startRogue}
           />
         ) : phase === "paused" ? (
           <PauseMenu
@@ -249,6 +270,10 @@ export default function InvaderGame() {
             isLast={(hud?.stage ?? 1) >= STAGE_COUNT}
             onNext={handleNext}
             onQuit={handleQuit}
+            disabled={(run?.offer.length ?? 0) > 0}
+            extra={
+              run && run.offer.length > 0 ? <UpgradePick run={run} onPick={handlePickUpgrade} /> : null
+            }
           />
         ) : phase === "gameOver" ? (
           <GameOverScreen
@@ -256,6 +281,11 @@ export default function InvaderGame() {
             stage={hud?.stage ?? 1}
             onRetry={handleRetry}
             onQuit={handleQuit}
+            rogue={
+              run
+                ? { depth: run.depth, bestDepth: progress.bestDepth ?? run.depth, threat: run.threat }
+                : null
+            }
           />
         ) : phase === "allClear" ? (
           <AllClearScreen score={hud?.score ?? 0} onQuit={handleQuit} />

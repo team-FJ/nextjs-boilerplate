@@ -1,7 +1,7 @@
 import { clamp, createRng, type Rng } from "../game/rng";
 import { CPU_PROFILES, VERSUS_WEAPONS } from "./constants";
 import type { VersusEngine } from "./engine";
-import type { CpuLevel, Fighter, FighterInput, PlayerId } from "./types";
+import type { BoostId, CpuLevel, Fighter, FighterInput, PlayerId } from "./types";
 
 /**
  * CPU 思考ルーチン。
@@ -137,6 +137,25 @@ export class VersusAi {
       if (dy < bestD) {
         bestD = dy;
         best = b;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * 逆転強化の選択。人間と同じ土俵に乗せるため、CPU も必ず1つ取る。
+   * 生存に効くものを軽く優先しつつ、毎回同じにならないよう乱数で崩す。
+   */
+  pickBoost(options: BoostId[]): BoostId {
+    if (options.length === 0) return "armor";
+    const weight: Record<string, number> = { armor: 3, guard: 3, regen: 2, power: 2, barrier: 2, swift: 1, payload: 1, focus: 1 };
+    let best = options[0];
+    let bestScore = -Infinity;
+    for (const id of options) {
+      const score = (weight[id] ?? 1) + this.random() * 2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = id;
       }
     }
     return best;

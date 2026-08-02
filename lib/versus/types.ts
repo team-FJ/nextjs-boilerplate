@@ -24,7 +24,80 @@ export type BandEnemyId = "drifter" | "twin" | "sniper" | "armored" | "bomber";
 
 export type CpuLevel = "rookie" | "normal" | "veteran" | "ace";
 
+/** ラウンドの敗者が選べる強化 */
+export type BoostId =
+  | "armor"
+  | "regen"
+  | "power"
+  | "swift"
+  | "barrier"
+  | "payload"
+  | "focus"
+  | "guard";
+
+/** 敗者に提示中の選択肢 */
+export interface PendingBoost {
+  player: PlayerId;
+  options: BoostId[];
+  /** 選ばれないまま試合が止まらないよう、残り時間が尽きたら自動で決める */
+  timer: number;
+}
+
 export type VersusMode = "cpu" | "local";
+
+export type CourseId =
+  | "standard"
+  | "close"
+  | "long"
+  | "duel"
+  | "swarm"
+  | "barricade"
+  | "gate"
+  | "pillars"
+  | "shelter"
+  | "crossfire"
+  | "fortress"
+  | "glass"
+  | "labyrinth";
+
+/** 壁1枚の定義。x, y は中心座標 */
+export interface WallDef {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  hp: number;
+}
+
+export interface VersusCourse {
+  id: CourseId;
+  name: string;
+  desc: string;
+  /** 自陣の高さ。中立ゾーンの高さはここから決まる */
+  zoneH: number;
+  /** 中立ゾーンの敵の湧きやすさ倍率 */
+  enemyRate: number;
+  /** 上半分の壁。下半分は 180 度回して自動生成される */
+  halfWalls: WallDef[];
+}
+
+export interface Zone {
+  top: number;
+  bottom: number;
+}
+
+export interface CourseZones {
+  top: Zone;
+  band: Zone;
+  bottom: Zone;
+}
+
+/** 試合中の壁。定義に現在の耐久を足したもの */
+export interface VersusWall extends WallDef {
+  index: number;
+  maxHp: number;
+  hitFlash: number;
+}
 
 export type VersusPhase =
   | "menu"
@@ -91,6 +164,8 @@ export interface Fighter {
   kills: number;
   pickups: number;
   alive: boolean;
+  /** 取得済みの逆転強化。ラウンドをまたいで残る */
+  boosts: BoostId[];
 }
 
 export interface VersusBullet {
@@ -199,4 +274,6 @@ export interface VersusConfig {
   roundsToWin: number;
   /** 中立ゾーンの敵の湧きやすさ */
   enemyDensity: "low" | "normal" | "high";
+  /** 対戦コース。陣地の広さと壁の配置が変わる */
+  course: CourseId;
 }
