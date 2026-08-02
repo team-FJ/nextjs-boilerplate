@@ -21,12 +21,14 @@ export function TitleScreen({
   onStageSelect,
   onOptions,
   onHowTo,
+  onRogue,
 }: {
   progress: Progress;
   onStart: () => void;
   onStageSelect: () => void;
   onOptions: () => void;
   onHowTo: () => void;
+  onRogue: () => void;
 }) {
   return (
     <div className={`${panel} items-center justify-center gap-6 px-6 text-center`}>
@@ -52,6 +54,12 @@ export function TitleScreen({
         <button className={btnPrimary} onClick={onStart}>
           ▶ ゲーム開始
         </button>
+        <button
+          className="rounded-md border border-amber-300/50 bg-amber-400/15 px-4 py-2 text-sm font-bold text-amber-100 transition-colors hover:bg-amber-400/30 active:scale-[0.98]"
+          onClick={onRogue}
+        >
+          ⚡ ローグライト
+        </button>
         <button className={btn} onClick={onStageSelect}>
           ステージセレクト
         </button>
@@ -74,6 +82,11 @@ export function TitleScreen({
         <div>
           CLEARED {progress.clearedStages.length}/{STAGES.length} ・ MAX COMBO {progress.bestCombo}
         </div>
+        {(progress.bestDepth ?? 0) > 0 && (
+          <div className="text-amber-200/60">
+            ROGUE BEST ST.{progress.bestDepth} ・ {(progress.bestRogueScore ?? 0).toLocaleString()}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -402,12 +415,17 @@ export function StageClearScreen({
   isLast,
   onNext,
   onQuit,
+  extra,
+  disabled = false,
 }: {
   result: StageResult | null;
   totalScore: number;
   isLast: boolean;
   onNext: () => void;
   onQuit: () => void;
+  /** ローグライトの強化選択など、クリア画面に差し込む内容 */
+  extra?: React.ReactNode;
+  disabled?: boolean;
 }) {
   const acc = result && result.shotsFired > 0 ? (result.shotsHit / result.shotsFired) * 100 : 0;
   return (
@@ -432,9 +450,11 @@ export function StageClearScreen({
         </div>
       </div>
 
+      {extra}
+
       <div className="flex gap-2">
-        <button className={btnPrimary} onClick={onNext}>
-          {isLast ? "エンディングへ" : "次のステージへ ▶"}
+        <button className={btnPrimary} onClick={onNext} disabled={disabled}>
+          {disabled ? "強化を選んでください" : isLast ? "エンディングへ" : "次のステージへ ▶"}
         </button>
         <button className={btn} onClick={onQuit}>
           タイトル
@@ -458,11 +478,14 @@ export function GameOverScreen({
   stage,
   onRetry,
   onQuit,
+  rogue,
 }: {
   score: number;
   stage: number;
   onRetry: () => void;
   onQuit: () => void;
+  /** ローグライトのときだけ、到達記録を出す */
+  rogue?: { depth: number; bestDepth: number; threat: number } | null;
 }) {
   return (
     <div className={`${panel} items-center justify-center gap-5`}>
@@ -471,6 +494,13 @@ export function GameOverScreen({
         <div>STAGE {stage} で撃墜</div>
         <div className="mt-1 text-lg font-bold text-amber-300">{score.toLocaleString()}</div>
       </div>
+      {rogue && (
+        <div className="rounded border border-amber-300/40 bg-amber-400/10 p-3 text-center font-mono text-[11px] text-amber-100/90">
+          <div>到達 ST.{rogue.depth} ・ 脅威度 {rogue.threat.toFixed(1)}</div>
+          <div className="text-white/50">自己ベスト ST.{rogue.bestDepth}</div>
+        </div>
+      )}
+
       <div className="flex gap-2">
         <button className={btnPrimary} onClick={onRetry}>
           コンティニュー

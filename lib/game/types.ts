@@ -125,6 +125,53 @@ export interface CarryPolicy {
   healOnStage: boolean;
 }
 
+/** 遊び方のモード。roguelite は1回ごとに強化を積み直す */
+export type RunMode = "campaign" | "roguelite";
+
+export type RogueUpgradeId =
+  | "power"
+  | "pod"
+  | "speed"
+  | "vitality"
+  | "barrier"
+  | "ordnance"
+  | "rapid"
+  | "fortune"
+  | "overdrive"
+  | "hairtrigger"
+  | "glasscannon"
+  | "scavenger"
+  | "piercer"
+  | "gambler"
+  | "reactor"
+  | "bulwark";
+
+/** ローグライトの1回ぶんの状態 */
+export interface RogueRun {
+  active: boolean;
+  /** 到達したステージ */
+  depth: number;
+  /** 積んだ強化の合計。これに応じて敵が強くなる */
+  threat: number;
+  taken: Partial<Record<RogueUpgradeId, number>>;
+  /** クリア後に提示中の選択肢 */
+  offer: RogueUpgradeId[];
+  // ここから下は taken から組み直される補正値
+  fireIntervalMul: number;
+  damageMul: number;
+  itemChanceMul: number;
+  enemyBulletMul: number;
+  pierceBonus: number;
+  scoreMul: number;
+  powerBonus: number;
+  podBonus: number;
+  speedBonus: number;
+  hpBonus: number;
+  shieldBonus: number;
+  bombBonus: number;
+  noShield: boolean;
+}
+
 export interface Settings {
   difficulty: Difficulty;
   autoFire: boolean;
@@ -142,6 +189,9 @@ export interface Settings {
 
 export interface Progress {
   unlockedStage: number;
+  /** ローグライトの最高到達ステージとスコア */
+  bestDepth?: number;
+  bestRogueScore?: number;
   clearedStages: number[];
   highScores: Record<number, number>;
   bestTotalScore: number;

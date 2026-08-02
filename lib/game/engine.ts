@@ -25,6 +25,15 @@ import { BOSS_DEFS, ENEMY_DEFS, type BossAttack } from "./enemies";
 import { entryStart, generateSlots } from "./formations";
 import type { InputState } from "./input";
 import { clamp, pick, rand, randInt } from "./rng";
+import {
+  applyRunLoadout,
+  emptyRun,
+  offerUpgrades,
+  recomputeRun,
+  takeUpgrade,
+  THREAT_SCALE,
+  wantedPods,
+} from "./roguelite";
 import { getStage, STAGE_COUNT } from "./stages";
 import { resetProgress, saveProgress } from "./storage";
 import type {
@@ -39,6 +48,8 @@ import type {
   Phase,
   PlayerState,
   Progress,
+  RogueRun,
+  RogueUpgradeId,
   Settings,
   StageDef,
   StageResult,
@@ -128,6 +139,8 @@ export class GameEngine {
   waveIndex = 0;
 
   player: PlayerState = createPlayer();
+  /** ローグライトの状態。active でなければ通常のキャンペーン */
+  run: RogueRun = emptyRun();
   enemies: Enemy[] = [];
   bullets: Bullet[] = [];
   items: Item[] = [];
@@ -200,8 +213,22 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 難易度の係数。ローグライトでは、積んだ強化に応じて敵も強くする。
+   * 強化を積むほど楽になる、という状態にしないための中心的な仕掛け。
+   */
   private get diff() {
-    return DIFFICULTY[this.settings.difficulty];
+    const base = DIFFICULTY[this.settings.difficulty];
+    if (!this.run.active) return base;
+    const t = this.run.threat;
+    return {
+      ...base,
+      enemyHp: base.enemyHp * (1 + t * THREAT_SCALE.hp),
+      enemyFire: base.enemyFire * (1 + t * THREAT_SCALE.fire),
+      bulletSpeed: base.bulletSpeed * (1 + t * THREAT_SCALE.bulletSpeed) * this.run.enemyBulletMul,
+      enemySpeed: base.enemySpeed * (1 + t * THREAT_SCALE.moveSpeed),
+      scoreMul: base.scoreMul * (1 + t * THREAT_SCALE.score) * this.run.scoreMul,
+    };
   }
 
   private setPhase(phase: Phase) {
@@ -251,9 +278,25 @@ export class GameEngine {
     this.bossDefeated = false;
     this.hazardTimer = 0.8;
     this.briefingTimer = 2.6;
+    if (this.run.active) {
+      // 強化で決まった構成に戻す。前のステージで拾ったアイテムはここで消える
+      this.run.depth = Math.max(this.run.depth, this.stageIndex);
+      applyRunLoadout(this.player, this.run, PLAYER_MAX_HP, PLAYER_MAX_SHIELD);
+      this.syncPods();
+    }
     this.resetPlayerPosition();
     this.setPhase("briefing");
     this.audio.startBgm(this.stageIndex * 7 + 3, this.stage.boss ? 128 : 152);
+  }
+
+  /** ポッドの数を強化に合わせる（足りなければ生やす） */
+  private syncPods() {
+    const p = this.player;
+    const want = wantedPods(this.run);
+    while (p.options.length < want) {
+      p.options.push({ x: p.x, y: p.y + 30, angle: 0, fireCooldown: 0 });
+    }
+    if (p.options.length > want) p.options.length = want;
   }
 
   private resetPlayerPosition() {
@@ -290,12 +333,44 @@ export class GameEngine {
   }
 
   nextStage() {
+    // ローグライトでは強化を選び終えるまで次のステージへ進まない
+    if (this.run.active && this.run.offer.length > 0) return;
     if (this.stageIndex >= STAGE_COUNT) {
       this.setPhase("allClear");
       return;
     }
-    this.applyCarryOver();
+    if (!this.run.active) this.applyCarryOver();
     this.loadStage(this.stageIndex + 1);
+  }
+
+  /** ローグライトを開始する。必ず1面から、残機なしで進む */
+  startRogueRun() {
+    this.player = createPlayer();
+    this.run = emptyRun();
+    this.run.active = true;
+    recomputeRun(this.run);
+    this.player.lives = 0; // ミス即終了
+    this.score = 0;
+    this.displayScore = 0;
+    this.totalRunScore = 0;
+    this.maxCombo = 0;
+    this.nextExtend = Infinity; // 残機は増えない
+    this.progress.playCount += 1;
+    this.persist();
+    this.loadStage(1);
+  }
+
+  /** クリア後に提示中の強化を取る */
+  pickUpgrade(id: RogueUpgradeId): boolean {
+    if (!this.run.active) return false;
+    if (!this.run.offer.includes(id)) return false;
+    if (!takeUpgrade(this.run, id)) return false;
+    this.audio.play("powerup");
+    return true;
+  }
+
+  get awaitingUpgrade(): boolean {
+    return this.run.active && this.run.offer.length > 0;
   }
 
   /**
@@ -473,7 +548,7 @@ export class GameEngine {
     if (wantFire && p.fireCooldown <= 0) {
       this.firePlayerWeapon();
       const spec = WEAPONS[p.weapon];
-      p.fireCooldown = spec.interval * (this.powerups.rapid > 0 ? 0.55 : 1);
+      p.fireCooldown = spec.interval * (this.powerups.rapid > 0 ? 0.55 : 1) * this.run.fireIntervalMul;
     }
 
     // 押した瞬間だけ反応させる（押しっぱなしでは連発しない）
@@ -552,7 +627,7 @@ export class GameEngine {
     if (p.dead) return;
     const spec = WEAPONS[p.weapon];
     const pattern = this.shotPattern(p.weapon, p.power);
-    const dmgScale = 1 + (p.power - 1) * 0.22;
+    const dmgScale = (1 + (p.power - 1) * 0.22) * this.run.damageMul;
 
     for (const s of pattern) {
       this.spawnPlayerBullet(p.x + s.ox, p.y - 16, s.angle, spec, dmgScale, p.weapon, p.power);
@@ -562,7 +637,7 @@ export class GameEngine {
     // オプションポッドも同時発射（威力は 60%）
     for (const pod of p.options) {
       if (pod.fireCooldown > 0) continue;
-      pod.fireCooldown = spec.interval * (this.powerups.rapid > 0 ? 0.55 : 1);
+      pod.fireCooldown = spec.interval * (this.powerups.rapid > 0 ? 0.55 : 1) * this.run.fireIntervalMul;
       const podPattern = p.weapon === "spread" ? pattern.filter((_, i) => i % 2 === 0) : [pattern[0]];
       for (const s of podPattern) {
         this.spawnPlayerBullet(pod.x + s.ox * 0.5, pod.y - 10, s.angle, spec, dmgScale * 0.6, p.weapon, p.power);
@@ -580,7 +655,8 @@ export class GameEngine {
     weapon: WeaponKind,
     power: number,
   ) {
-    const pierce = this.powerups.pierce > 0 ? Math.max(3, spec.pierce) : spec.pierce;
+    const pierce =
+      (this.powerups.pierce > 0 ? Math.max(3, spec.pierce) : spec.pierce) + this.run.pierceBonus;
     this.bullets.push({
       x,
       y,
@@ -596,7 +672,7 @@ export class GameEngine {
       homing: spec.homing,
       color: spec.color,
       angle,
-      hitIds: spec.pierce > 0 || this.powerups.pierce > 0 ? new Set<number>() : undefined,
+      hitIds: pierce > 0 ? new Set<number>() : undefined,
     });
   }
 
@@ -664,6 +740,16 @@ export class GameEngine {
     if (p.lives < 0) this.gameOver();
   }
 
+  /** ローグライトの記録を保存する */
+  private recordRun() {
+    if (!this.run.active) return;
+    const best = this.progress.bestDepth ?? 0;
+    if (this.run.depth > best) this.progress.bestDepth = this.run.depth;
+    const bestScore = this.progress.bestRogueScore ?? 0;
+    if (this.score > bestScore) this.progress.bestRogueScore = this.score;
+    this.persist();
+  }
+
   private gameOver() {
     this.audio.stopBgm();
     this.audio.play("gameOver");
@@ -671,6 +757,7 @@ export class GameEngine {
     this.progress.bestTotalScore = Math.max(this.progress.bestTotalScore, this.score);
     this.progress.bestCombo = Math.max(this.progress.bestCombo, this.maxCombo);
     this.persist();
+    this.recordRun();
     this.setPhase("gameOver");
   }
 
@@ -949,7 +1036,7 @@ export class GameEngine {
   }
 
   private maybeDropItem(x: number, y: number) {
-    const chance = this.stage.itemChance * this.diff.itemChance;
+    const chance = this.stage.itemChance * this.diff.itemChance * this.run.itemChanceMul;
     if (Math.random() > chance) return;
     const total = ITEM_POOL.reduce((s, i) => s + i.weight, 0);
     let roll = Math.random() * total;
@@ -1742,6 +1829,14 @@ export class GameEngine {
     this.clearTimer = 0;
     this.audio.stopBgm();
     this.audio.play("stageClear");
+    if (this.run.active) {
+      this.run.depth = Math.max(this.run.depth, this.stageIndex);
+      this.recordRun();
+      // 次のステージへ進む前に強化を1つ選ばせる
+      if (this.stageIndex < STAGE_COUNT) {
+        this.run.offer = offerUpgrades(this.run, 3, Math.random);
+      }
+    }
     this.setPhase(this.stageIndex >= STAGE_COUNT ? "allClear" : "stageClear");
   }
 
