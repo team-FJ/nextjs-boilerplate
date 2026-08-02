@@ -141,9 +141,16 @@ function main() {
   let best: { g: Genome; score: number } | null = null;
   const t0 = Date.now();
 
+  // 探索幅。荒い探索から細かい調整へ移すが、下限より小さくはしない。
+  // 下限を切ると以降の世代がほぼ動かなくなり、回すだけ無駄になる。
+  const SIGMA_MAX = 0.32;
+  const SIGMA_MIN = 0.05;
+  let sigmaBase = SIGMA_MAX;
+  let sinceGain = 0;
+  let lastBest = -Infinity;
+
   for (let gen = 0; gen < GENERATIONS; gen++) {
-    // 世代が進むほど探索幅を狭めて、荒い探索から細かい調整へ移す
-    const sigma = 0.32 * Math.pow(0.955, gen);
+    const sigma = Math.max(SIGMA_MIN, sigmaBase);
     const seedBase = 100000 + gen * 31337;
     const scored = population
       .map((g) => ({ g, score: evaluate(g, league, seedBase) }))
@@ -158,15 +165,40 @@ function main() {
       `世代 ${String(gen + 1).padStart(3)}  最高 ${champ.score.toFixed(3)}  平均 ${mean.toFixed(3)}  σ=${sigma.toFixed(3)}  ${elapsed}秒`,
     );
 
+    // 伸びているうちは狭め、頭打ちなら広げ直す（局所解から抜けるため）
+    if (champ.score > lastBest + 0.01) {
+      sigmaBase *= 0.97;
+      sinceGain = 0;
+      lastBest = champ.score;
+    } else {
+      sinceGain += 1;
+      if (sinceGain >= 8) {
+        sigmaBase = Math.min(SIGMA_MAX, sigmaBase * 2.2);
+        sinceGain = 0;
+        console.log(`  ・伸び止まりのため探索幅を戻す（σ=${sigmaBase.toFixed(3)}）`);
+      }
+    }
+
     // 今の相手に安定して勝てるようになったら、一段上のリーグへ上げる
     if (champ.score > 0.6 && tier < TIERS.length - 1) {
       tier += 1;
       console.log(`  → リーグを上げる（${TIERS[tier].join("/")}）`);
       best = null; // 相手が変わったのでスコアは比較できない
+      lastBest = -Infinity;
+      sigmaBase = SIGMA_MAX * 0.6; // 相手が変わったので探索し直す
       league = baseLeague();
     } else if ((gen + 1) % 5 === 0) {
       // 過去の自分とも戦わせて、特定の相手にだけ強い個体になるのを防ぐ
       league = [...baseLeague(), neural(`gen${gen + 1}`, [...champ.g])];
+    }
+
+    // 途中で止まっても成果を捨てずに済むよう、10世代ごとに書き出す
+    if (OUT.endsWith(".json") && (gen + 1) % 10 === 0) {
+      const snap = best ?? champ;
+      writeFileSync(
+        OUT,
+        JSON.stringify({ seed: SEED, tier, gen: gen + 1, score: snap.score, w: snap.g.map((x) => Number(x.toFixed(4))) }),
+      );
     }
 
     const elites = scored.slice(0, ELITES).map((x) => x.g);
