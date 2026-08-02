@@ -109,6 +109,22 @@ export type ThemeName =
   | "sunrise"
   | "cyber";
 
+/** ステージ間で強化をどれだけ持ち越すか */
+export interface CarryPolicy {
+  /** 武装（バルカン以外）を持ち越すか */
+  weapon: boolean;
+  /** パワーレベルを何段階戻すか */
+  powerDecay: number;
+  /** オプションポッドを何基外すか */
+  optionDecay: number;
+  keepSpeed: boolean;
+  keepShield: boolean;
+  /** keep=そのまま / one=1発に補充 / zero=なし */
+  bombs: "keep" | "one" | "zero";
+  /** ステージ開始時に耐久を全回復するか */
+  healOnStage: boolean;
+}
+
 export interface Settings {
   difficulty: Difficulty;
   autoFire: boolean;

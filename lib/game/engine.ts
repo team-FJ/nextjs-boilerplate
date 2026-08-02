@@ -14,6 +14,7 @@ import {
   PLAYER_MAX_SHIELD,
   PLAYER_SPEED_STEP,
   POWERUP_DURATION,
+  CARRY_POLICY,
   RESPAWN_INVINCIBLE,
   START_BOMBS,
   TRAIL_LENGTH,
@@ -293,7 +294,25 @@ export class GameEngine {
       this.setPhase("allClear");
       return;
     }
+    this.applyCarryOver();
     this.loadStage(this.stageIndex + 1);
+  }
+
+  /**
+   * 次のステージへ持ち越す強化を、難易度ごとの方針で削る。
+   * 全部持ち越すと中盤で強さが頭打ちになり、進むほど楽になってしまう。
+   */
+  private applyCarryOver() {
+    const policy = CARRY_POLICY[this.settings.difficulty];
+    const p = this.player;
+    if (!policy.weapon) p.weapon = "vulcan";
+    if (policy.powerDecay > 0) p.power = Math.max(1, p.power - policy.powerDecay);
+    if (policy.optionDecay > 0) p.options = p.options.slice(0, Math.max(0, p.options.length - policy.optionDecay));
+    if (!policy.keepSpeed) p.speedLevel = 1;
+    if (!policy.keepShield) p.shield = 0;
+    if (policy.bombs === "one") p.bombs = Math.min(p.bombs, 1);
+    else if (policy.bombs === "zero") p.bombs = 0;
+    if (policy.healOnStage) p.hp = p.maxHp;
   }
 
   retryStage() {

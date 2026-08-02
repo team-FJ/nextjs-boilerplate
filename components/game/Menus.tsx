@@ -43,7 +43,9 @@ export function TitleScreen({
             fujiki games
           </div>
         </div>
-        <div className="mt-2 font-mono text-[11px] text-white/50">全30ステージ / 18種のアイテム / 6体のボス</div>
+        <div className="mt-2 font-mono text-[11px] text-white/50">
+          全{STAGES.length}ステージ / 18種のアイテム / 6体のボス
+        </div>
       </div>
 
       <div className="flex w-56 flex-col gap-2">
@@ -494,7 +496,7 @@ export function AllClearScreen({
         ALL CLEAR
       </h2>
       <p className="max-w-xs text-[12px] leading-relaxed text-white/70">
-        全30ステージを制圧した。オーバーマインドの残骸が静かに漂う中、
+        全{STAGES.length}ステージを制圧した。オーバーマインドの残骸が静かに漂う中、
         あなたの機体は次の宙域へと進路を取る——
       </p>
       <div className="font-mono text-sm text-amber-300">FINAL SCORE {score.toLocaleString()}</div>
