@@ -64,7 +64,7 @@ export function TitleScreen({
           ステージセレクト
         </button>
         <button className={btn} onClick={onOptions}>
-          オプション設定
+          設定
         </button>
         <button className={btn} onClick={onHowTo}>
           遊び方 / アイテム一覧
@@ -232,14 +232,14 @@ export function OptionsMenu({
   return (
     <div className={`${panel} gap-2 p-4`}>
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">オプション設定</h2>
+        <h2 className="text-lg font-bold">設定</h2>
         <button className={btn} onClick={onBack}>
           戻る
         </button>
       </div>
 
       <div className="pb-6">
-        <div className="mt-1 font-mono text-[10px] tracking-widest text-cyan-300/70">GAMEPLAY</div>
+        <div className="mt-1 font-mono text-[10px] tracking-widest text-cyan-300/70">ゲーム</div>
         <Row label="難易度" hint={DIFFICULTY[settings.difficulty].description}>
           <Choice<Difficulty>
             value={settings.difficulty}
@@ -250,71 +250,91 @@ export function OptionsMenu({
             onChange={(difficulty) => onChange({ difficulty })}
           />
         </Row>
-        <Row label="操作方法" hint="KEY：矢印/WASD と画面下のパッド ・ MOUSE：ポインタ追従（パッドは効きません）">
+        <Row
+          label="動かし方"
+          hint={
+            settings.control === "keyboard"
+              ? "パッド：画面下のスティックか矢印キーで動かす"
+              : "なぞる：画面に触れた場所へ機体が付いてくる（パッドは効きません）"
+          }
+        >
           <Choice
             value={settings.control}
             options={[
-              { value: "keyboard", label: "KEY" },
-              { value: "mouse", label: "MOUSE" },
+              { value: "keyboard", label: "パッド" },
+              { value: "mouse", label: "なぞる" },
             ]}
             onChange={(control) => onChange({ control })}
           />
         </Row>
-        <Row label="オートファイア" hint="常時発射。OFF なら Z / SPACE で射撃">
+        <Row label="自動で撃つ" hint="ONなら押さなくても撃ち続ける。OFFならSHOTボタン／SPACE・Zで射撃">
           <Toggle value={settings.autoFire} onChange={(autoFire) => onChange({ autoFire })} />
         </Row>
-        <Row label="オプション配置" hint="随伴ポッドの追従パターン">
+        <Row
+          label="サポート機の動き"
+          hint={
+            settings.optionFormation === "trail"
+              ? "ついてくる：自分が通った跡をなぞって並ぶ。弾幕を縦に厚くしたいとき"
+              : settings.optionFormation === "side"
+                ? "左右にならぶ：機体の横に固定。横幅を広く撃ちたいとき"
+                : "まわる：機体のまわりを回り続ける。全方向に散らしたいとき"
+          }
+        >
           <Choice
             value={settings.optionFormation}
             options={[
-              { value: "trail", label: "追従" },
+              { value: "trail", label: "ついてくる" },
               { value: "side", label: "左右" },
-              { value: "rotate", label: "回転" },
+              { value: "rotate", label: "まわる" },
             ]}
             onChange={(optionFormation) => onChange({ optionFormation })}
           />
         </Row>
+        <div className="mb-1 rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 font-mono text-[9px] leading-relaxed text-white/45">
+          サポート機は、アイテム「サポート機」を拾うと最大4機まで増える小型機です。
+          自機について回り、同じ武器を一緒に撃ちます。
+        </div>
 
-        <div className="mt-4 font-mono text-[10px] tracking-widest text-cyan-300/70">VIDEO</div>
-        <Row label="画面揺れ">
+        <div className="mt-4 font-mono text-[10px] tracking-widest text-cyan-300/70">見た目</div>
+        <Row label="画面を揺らす" hint="爆発したときに画面が震える演出">
           <Toggle value={settings.screenShake} onChange={(screenShake) => onChange({ screenShake })} />
         </Row>
-        <Row label="エフェクト量" hint="低スペック環境では LOW を推奨">
+        <Row label="エフェクトの量" hint="爆発や火花の粒の多さ。動きが重いときは「少なめ」に">
           <Choice
             value={settings.particles}
             options={[
-              { value: "low", label: "LOW" },
-              { value: "normal", label: "MID" },
-              { value: "high", label: "HIGH" },
+              { value: "low", label: "少なめ" },
+              { value: "normal", label: "ふつう" },
+              { value: "high", label: "多め" },
             ]}
             onChange={(particles) => onChange({ particles })}
           />
         </Row>
-        <Row label="CRT スキャンライン">
+        <Row label="走査線" hint="昔のブラウン管風の横線を重ねる">
           <Toggle value={settings.crt} onChange={(crt) => onChange({ crt })} />
         </Row>
-        <Row label="スターフィールド">
+        <Row label="背景の星" hint="流れる星を描く。OFFにすると画面が見やすくなる">
           <Toggle value={settings.starfield} onChange={(starfield) => onChange({ starfield })} />
         </Row>
-        <Row label="色覚サポート" hint="敵弾を高コントラスト配色に変更">
+        <Row label="敵弾を見やすく" hint="敵の弾を、背景と区別しやすい色に変える">
           <Toggle value={settings.colorBlind} onChange={(colorBlind) => onChange({ colorBlind })} />
         </Row>
-        <Row label="FPS 表示">
+        <Row label="フレームレート表示" hint="画面左下に1秒あたりの描画回数を出す（動作確認用）">
           <Toggle value={settings.showFps} onChange={(showFps) => onChange({ showFps })} />
         </Row>
 
-        <div className="mt-4 font-mono text-[10px] tracking-widest text-cyan-300/70">AUDIO</div>
-        <Row label="効果音">
+        <div className="mt-4 font-mono text-[10px] tracking-widest text-cyan-300/70">音</div>
+        <Row label="効果音の音量">
           <Slider value={settings.sfxVolume} onChange={(sfxVolume) => onChange({ sfxVolume })} />
         </Row>
-        <Row label="BGM">
+        <Row label="音楽の音量">
           <Slider value={settings.bgmVolume} onChange={(bgmVolume) => onChange({ bgmVolume })} />
         </Row>
 
-        <div className="mt-4 font-mono text-[10px] tracking-widest text-rose-300/70">DATA</div>
+        <div className="mt-4 font-mono text-[10px] tracking-widest text-rose-300/70">データ</div>
         <Row
-          label="進行状況をリセット"
-          hint={`解放 ${progress.unlockedStage} / クリア ${progress.clearedStages.length} / プレイ ${progress.playCount} 回`}
+          label="記録を消す"
+          hint={`解放 ${progress.unlockedStage} 面 / クリア ${progress.clearedStages.length} 面 / プレイ ${progress.playCount} 回。ハイスコアと解放状況が消えます`}
         >
           <button
             className="rounded border border-rose-400/50 bg-rose-500/15 px-3 py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-500/30"
@@ -353,7 +373,7 @@ export function HowTo({ onBack }: { onBack: () => void }) {
       <p className="text-[11px] leading-relaxed text-white/70">
         敵を全滅させるとウェーブが進み、最終ウェーブ後にボスが出現するステージもあります。
         コンボ（連続撃破）でスコア倍率が上がり、被弾なしクリアには大きなボーナスが入ります。
-        オプション（随伴ポッド）は最大4基まで増え、本体と同じ武装を撃ちます。
+        サポート機は最大4機まで増え、自機について回って同じ武器を一緒に撃ちます。
       </p>
 
       <div className="font-mono text-[10px] tracking-widest text-cyan-300/70">ITEMS</div>
@@ -399,7 +419,7 @@ export function PauseMenu({
           このステージを最初から
         </button>
         <button className={btn} onClick={onOptions}>
-          オプション設定
+          設定
         </button>
         <button className={btn} onClick={onQuit}>
           タイトルへ戻る

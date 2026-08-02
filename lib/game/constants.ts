@@ -261,7 +261,7 @@ export const ITEM_LABEL: Record<string, { short: string; name: string; desc: str
   missile: { short: "M", name: "ミサイル", desc: "追尾ミサイルに換装", color: "#ff9d5c" },
   wave: { short: "W", name: "ウェーブ", desc: "広範囲波動砲に換装", color: "#c58dff" },
   rail: { short: "R", name: "レールガン", desc: "高威力貫通弾に換装", color: "#ff6fa5" },
-  option: { short: "O", name: "オプション", desc: "随伴ポッド +1（最大4）", color: "#ffe86b" },
+  option: { short: "O", name: "サポート機", desc: "一緒に撃つ小型機 +1（最大4機）", color: "#ffe86b" },
   shield: { short: "B", name: "バリア", desc: "シールドを全回復", color: "#7ec8ff" },
   speed: { short: "▲", name: "スピード", desc: "移動速度 +1（最大5）", color: "#9dffe0" },
   rapid: { short: "R+", name: "ラピッド", desc: "12秒間 連射速度2倍", color: "#ffe86b" },

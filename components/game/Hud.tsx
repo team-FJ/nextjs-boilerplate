@@ -130,7 +130,7 @@ export function Hud({ hud, highScore }: { hud: HudSnapshot; highScore: number })
 
         <div className="w-20 text-right text-white/50">
           <div>
-            OPTION <span className="text-amber-200">{hud.optionCount}</span>
+            サポート機 <span className="text-amber-200">{hud.optionCount}</span>
           </div>
           <div>
             残敵 <span className="text-white/80 tabular-nums">{hud.enemiesLeft}</span>
