@@ -119,6 +119,8 @@ export interface Snapshot {
   b: SnapBullet[];
   e: SnapEnemy[];
   it: SnapItem[];
+  /** 壁の残り耐久。並び順はコース定義から決まるので位置や大きさは送らなくてよい */
+  wl: number[];
   /** 各プレイヤーの「ここまで処理した入力シーケンス」。予測の巻き戻しに使う */
   ack: [number, number];
 }
@@ -165,6 +167,7 @@ export function captureSnapshot(engine: VersusEngine, tick: number, ack: [number
   };
 
   return {
+    wl: engine.walls.map((w) => q1(Math.max(0, w.hp))),
     tk: tick,
     ph: engine.phase,
     rd: engine.round,

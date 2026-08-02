@@ -7,6 +7,7 @@ import { FIXED_DT, MAX_FRAME_SKIP } from "@/lib/game/constants";
 import { loadSettings } from "@/lib/game/storage";
 import type { Settings } from "@/lib/game/types";
 import { V_H, V_W } from "@/lib/versus/constants";
+import { DEFAULT_COURSE } from "@/lib/versus/courses";
 import { VersusInput } from "@/lib/versus/input";
 import { buildRenderable, toFieldInput } from "@/lib/versus/net/viewAdapter";
 import { VersusSession, type SessionRole } from "@/lib/versus/net/session";
@@ -14,6 +15,7 @@ import type { TransportKind, TransportState } from "@/lib/versus/net/transport";
 import { VersusRenderer } from "@/lib/versus/render";
 import type { PlayerId, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
 
+import { CourseSelect } from "./CourseSelect";
 import { TouchPad } from "./TouchPad";
 import { VersusHud } from "./VersusHud";
 
@@ -166,7 +168,7 @@ export default function OnlineVersusGame() {
       const client = session?.client;
       const view = client?.getView(now) ?? null;
       if (view && client?.you) {
-        const { renderable, hud: snapshot } = buildRenderable(view, client.you, settings);
+        const { renderable, hud: snapshot } = buildRenderable(view, client.you, settings, client.config?.course);
         renderer.draw(ctx, renderable, elapsed);
         hudAcc += elapsed;
         if (hudAcc > 0.08) {
@@ -412,6 +414,19 @@ export default function OnlineVersusGame() {
                         ))}
                       </div>
                     </div>
+                    <div className="border-t border-white/10 pt-2">
+                      <div className="mb-1 text-[11px]">コース</div>
+                      <CourseSelect
+                        value={config?.course ?? DEFAULT_COURSE}
+                        onChange={(course) => sessionRef.current?.setConfig({ course })}
+                      />
+                    </div>
+                  </div>
+                )}
+                {!isHost && config && (
+                  <div className="rounded border border-white/15 bg-white/[0.03] p-2">
+                    <div className="mb-1 text-[11px] text-white/60">コース（進行役が選びます）</div>
+                    <CourseSelect value={config.course} onChange={() => {}} disabled />
                   </div>
                 )}
 

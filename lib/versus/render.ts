@@ -1,9 +1,11 @@
 import { getSprite, roundRect } from "../game/sprites";
-import { BAND, BOTTOM_ZONE, TOP_ZONE, V_H, V_W, VERSUS_ITEMS, VERSUS_WEAPONS } from "./constants";
+import { V_H, V_W, VERSUS_ITEMS, VERSUS_WEAPONS } from "./constants";
 import { BAND_ENEMIES, VERSUS_FIGHTER_SPRITE } from "./enemies";
 import type { Settings } from "../game/types";
 import type {
   BandEnemy,
+  CourseZones,
+  VersusWall,
   Fighter,
   PlayerId,
   VersusBullet,
@@ -33,6 +35,10 @@ export interface RenderableVersus {
   enemies: BandEnemy[];
   items: VersusItem[];
   particles: VersusParticle[];
+  /** コースで変わる陣地・中立ゾーンの座標 */
+  zones: CourseZones;
+  /** 弾を止める壁 */
+  walls: VersusWall[];
 }
 
 interface Star {
@@ -61,6 +67,7 @@ export class VersusRenderer {
 
     this.drawField(ctx, engine, dt);
     this.drawItems(ctx, engine);
+    this.drawWalls(ctx, engine);
     this.drawEnemies(ctx, engine);
     this.drawFighter(ctx, engine.fighters[0]);
     this.drawFighter(ctx, engine.fighters[1]);
@@ -72,6 +79,7 @@ export class VersusRenderer {
   }
 
   private drawField(ctx: CanvasRenderingContext2D, engine: RenderableVersus, dt: number) {
+    const BAND = engine.zones.band;
     // 上下で色味を変えて陣地を直感的に分ける
     const top = ctx.createLinearGradient(0, 0, 0, BAND.top);
     top.addColorStop(0, "#2a0a1a");
@@ -145,6 +153,31 @@ export class VersusRenderer {
     ctx.textAlign = "center";
     ctx.fillText("N E U T R A L   Z O N E", V_W / 2, BAND.top + 14);
     ctx.globalAlpha = 1;
+  }
+
+  /** 壁。残り耐久が減るほど欠けて見えるようにする */
+  private drawWalls(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
+    for (const w of engine.walls) {
+      if (w.hp <= 0) continue;
+      const ratio = Math.max(0, Math.min(1, w.hp / w.maxHp));
+      const x = w.x - w.w / 2;
+      const y = w.y - w.h / 2;
+      ctx.save();
+      ctx.fillStyle = w.hitFlash > 0 ? "#ffffff" : "#3b4763";
+      roundRect(ctx, x, y, w.w, w.h, 3);
+      ctx.fill();
+      // 残り耐久を内側の明るい帯で示す
+      ctx.fillStyle = ratio > 0.5 ? "#8fa3c8" : ratio > 0.25 ? "#c8a86a" : "#c86a6a";
+      const inset = 3;
+      const iw = Math.max(0, (w.w - inset * 2) * ratio);
+      roundRect(ctx, x + inset, y + inset, iw, Math.max(0, w.h - inset * 2), 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(220,232,255,0.35)";
+      ctx.lineWidth = 1;
+      roundRect(ctx, x, y, w.w, w.h, 3);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   private drawEnemies(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
@@ -335,6 +368,9 @@ export class VersusRenderer {
   }
 
   private drawOverlay(ctx: CanvasRenderingContext2D, engine: RenderableVersus) {
+    const BAND = engine.zones.band;
+    const TOP_ZONE = engine.zones.top;
+    const BOTTOM_ZONE = engine.zones.bottom;
     if (engine.flash > 0) {
       ctx.fillStyle = engine.flashColor;
       ctx.globalAlpha = Math.min(0.45, engine.flash * 0.45);

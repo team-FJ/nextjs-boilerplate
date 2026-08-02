@@ -8,6 +8,7 @@ import { loadSettings } from "@/lib/game/storage";
 import type { Settings } from "@/lib/game/types";
 import { VersusAi } from "@/lib/versus/ai";
 import { V_H, V_W } from "@/lib/versus/constants";
+import { DEFAULT_COURSE } from "@/lib/versus/courses";
 import { VersusEngine } from "@/lib/versus/engine";
 import { VersusInput } from "@/lib/versus/input";
 import { VersusRenderer } from "@/lib/versus/render";
@@ -23,6 +24,7 @@ const DEFAULT_CONFIG: VersusConfig = {
   cpuLevel: "normal",
   roundsToWin: 2,
   enemyDensity: "normal",
+  course: DEFAULT_COURSE,
 };
 
 interface VersusCore {

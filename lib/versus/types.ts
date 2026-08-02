@@ -26,6 +26,60 @@ export type CpuLevel = "rookie" | "normal" | "veteran" | "ace";
 
 export type VersusMode = "cpu" | "local";
 
+export type CourseId =
+  | "standard"
+  | "close"
+  | "long"
+  | "duel"
+  | "swarm"
+  | "barricade"
+  | "gate"
+  | "pillars"
+  | "shelter"
+  | "crossfire"
+  | "fortress"
+  | "glass"
+  | "labyrinth";
+
+/** 壁1枚の定義。x, y は中心座標 */
+export interface WallDef {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  hp: number;
+}
+
+export interface VersusCourse {
+  id: CourseId;
+  name: string;
+  desc: string;
+  /** 自陣の高さ。中立ゾーンの高さはここから決まる */
+  zoneH: number;
+  /** 中立ゾーンの敵の湧きやすさ倍率 */
+  enemyRate: number;
+  /** 上半分の壁。下半分は 180 度回して自動生成される */
+  halfWalls: WallDef[];
+}
+
+export interface Zone {
+  top: number;
+  bottom: number;
+}
+
+export interface CourseZones {
+  top: Zone;
+  band: Zone;
+  bottom: Zone;
+}
+
+/** 試合中の壁。定義に現在の耐久を足したもの */
+export interface VersusWall extends WallDef {
+  index: number;
+  maxHp: number;
+  hitFlash: number;
+}
+
 export type VersusPhase =
   | "menu"
   | "countdown"
@@ -199,4 +253,6 @@ export interface VersusConfig {
   roundsToWin: number;
   /** 中立ゾーンの敵の湧きやすさ */
   enemyDensity: "low" | "normal" | "high";
+  /** 対戦コース。陣地の広さと壁の配置が変わる */
+  course: CourseId;
 }

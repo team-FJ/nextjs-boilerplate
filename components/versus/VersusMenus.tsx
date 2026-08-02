@@ -3,6 +3,8 @@
 import Link from "next/link";
 
 import { CPU_PROFILES, VERSUS_ITEMS } from "@/lib/versus/constants";
+
+import { CourseSelect } from "./CourseSelect";
 import { BAND_ENEMIES } from "@/lib/versus/enemies";
 import type { CpuLevel, VersusConfig, VersusHudSnapshot } from "@/lib/versus/types";
 
@@ -114,6 +116,12 @@ export function VersusMenu({
             onChange={(roundsToWin) => onChange({ roundsToWin })}
           />
         </Row>
+        <Row label="コース" hint="陣地の広さと壁の配置が変わる">
+          <span />
+        </Row>
+        <div className="pb-2">
+          <CourseSelect value={config.course} onChange={(course) => onChange({ course })} />
+        </div>
         <Row label="中立ゾーンの敵" hint="多いほどアイテムの奪い合いが激しくなる">
           <Choice
             value={config.enemyDensity}

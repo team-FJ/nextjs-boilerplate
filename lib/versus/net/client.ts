@@ -1,12 +1,6 @@
 import { clamp } from "../../game/rng";
-import {
-  BASE_SPEED,
-  BOTTOM_ZONE,
-  SLOW_FACTOR,
-  SPEED_STEP,
-  TOP_ZONE,
-  V_W,
-} from "../constants";
+import { BASE_SPEED, SLOW_FACTOR, SPEED_STEP, V_W } from "../constants";
+import { getCourse, zonesFor } from "../courses";
 import type { FighterInput, PlayerId, VersusConfig, VersusPhase } from "../types";
 import {
   encodeInput,
@@ -45,6 +39,8 @@ export interface ClientView {
   bullets: SnapBullet[];
   enemies: SnapEnemy[];
   items: SnapItem[];
+  /** 壁の残り耐久。位置と大きさはコース定義から引く */
+  wallHp: number[];
 }
 
 interface PendingInput {
@@ -261,7 +257,9 @@ export class NetClient {
 
   /** サーバーと同じ移動計算。ここがズレると予測が外れる */
   private step(x: number, y: number, input: FighterInput, dt: number, mine: SnapFighter) {
-    const zone = this.you === 1 ? BOTTOM_ZONE : TOP_ZONE;
+    // 陣地の広さはコースで変わる。サーバーと同じ値を使わないと予測がずれる
+    const zones = zonesFor(getCourse(this.config?.course));
+    const zone = this.you === 1 ? zones.bottom : zones.top;
     const speed = (BASE_SPEED + mine.sp * SPEED_STEP) * (mine.sl ? SLOW_FACTOR : 1);
     let dx = 0;
     let dy = 0;
@@ -337,6 +335,7 @@ export class NetClient {
       bullets: mergeById(older.snap.b, newer.snap.b),
       enemies: mergeById(older.snap.e, newer.snap.e),
       items: mergeById(older.snap.it, newer.snap.it),
+      wallHp: latest.wl ?? [],
     };
   }
 }

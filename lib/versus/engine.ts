@@ -2,12 +2,10 @@ import type { GameAudio } from "../game/audio";
 import { clamp, createRng, type Rng } from "../game/rng";
 import type { Settings } from "../game/types";
 import {
-  BAND,
   BASE_ENERGY,
   BASE_REGEN,
   BASE_SPEED,
   BOMB_SPEC,
-  BOTTOM_ZONE,
   COUNTDOWN_TIME,
   ENEMY_DENSITY,
   ENERGY_CAP,
@@ -31,13 +29,13 @@ import {
   SLOW_DURATION,
   SLOW_FACTOR,
   SPEED_STEP,
-  TOP_ZONE,
   V_H,
   V_W,
   VERSUS_ITEMS,
   VERSUS_WEAPONS,
   WEAPON_DURATION,
 } from "./constants";
+import { getCourse, wallsFor, zonesFor } from "./courses";
 import { BAND_ENEMIES, pickEnemyType } from "./enemies";
 import type {
   BandEnemy,
@@ -50,8 +48,11 @@ import type {
   VersusItem,
   VersusItemKind,
   VersusParticle,
+  VersusCourse,
   VersusPhase,
+  VersusWall,
   VersusWeapon,
+  CourseZones,
 } from "./types";
 
 export interface VersusCallbacks {
@@ -74,6 +75,12 @@ export class VersusEngine {
   enemies: BandEnemy[] = [];
   items: VersusItem[] = [];
   particles: VersusParticle[] = [];
+
+  /** 現在のコースと、そこから決まる陣地・中立ゾーンの座標 */
+  course: VersusCourse = getCourse(undefined);
+  zones: CourseZones = zonesFor(getCourse(undefined));
+  /** 弾を止める壁。コースごとに配置が決まる */
+  walls: VersusWall[] = [];
 
   round = 1;
   roundTime = ROUND_TIME;
@@ -105,14 +112,31 @@ export class VersusEngine {
     this.settings = settings;
     this.audio = audio;
     this.config = config;
+    this.applyCourse();
     this.fighters = [this.createFighter(1), this.createFighter(2)];
+  }
+
+  /** 設定されたコースから、陣地の座標と壁を組み直す */
+  private applyCourse() {
+    this.course = getCourse(this.config.course);
+    this.zones = zonesFor(this.course);
+    this.resetWalls();
+  }
+
+  private resetWalls() {
+    this.walls = wallsFor(this.course).map((w, index) => ({
+      ...w,
+      index,
+      maxHp: w.hp,
+      hitFlash: 0,
+    }));
   }
 
   // ---------------------------------------------------------------- 生成
 
   private createFighter(id: PlayerId): Fighter {
     const bottom = id === 1;
-    const zone = bottom ? BOTTOM_ZONE : TOP_ZONE;
+    const zone = bottom ? this.zones.bottom : this.zones.top;
     const palette = bottom ? PLAYER_COLORS.p1 : PLAYER_COLORS.p2;
     return {
       id,
@@ -172,6 +196,7 @@ export class VersusEngine {
   startMatch(config: VersusConfig, seed = Math.floor(Math.random() * 0xffffffff)) {
     this.config = config;
     this.seed = seed >>> 0;
+    this.applyCourse();
     this.fighters = [this.createFighter(1), this.createFighter(2)];
     this.round = 1;
     this.matchWinner = null;
@@ -193,6 +218,7 @@ export class VersusEngine {
     this.enemies = [];
     this.items = [];
     this.particles = [];
+    this.resetWalls();
     this.roundTime = ROUND_TIME;
     this.countdown = COUNTDOWN_TIME;
     this.spawnTimer = 2.2;
@@ -273,6 +299,7 @@ export class VersusEngine {
 
     this.updateFighter(this.fighters[0], inputs[0], dt);
     this.updateFighter(this.fighters[1], inputs[1], dt);
+    for (const w of this.walls) if (w.hitFlash > 0) w.hitFlash -= dt;
     this.updateEnemies(dt);
     this.updateBullets(dt);
     this.updateItems(dt);
@@ -466,7 +493,8 @@ export class VersusEngine {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       const ramp = Math.max(0.45, 1 - this.elapsed * density.ramp);
-      this.spawnTimer = this.rand(density.min, density.max) * ramp;
+      // コースごとの湧きやすさ。間隔を割るので、値が大きいほど多く出る
+      this.spawnTimer = (this.rand(density.min, density.max) * ramp) / this.course.enemyRate;
       this.spawnEnemy();
     }
 
@@ -493,7 +521,7 @@ export class VersusEngine {
     const def = BAND_ENEMIES[type];
     const fromLeft = this.rnd() < 0.5;
     const margin = 26;
-    const y = this.rand(BAND.top + margin, BAND.bottom - margin);
+    const y = this.rand(this.zones.band.top + margin, this.zones.band.bottom - margin);
     this.enemies.push({
       id: this.idCounter++,
       type,
@@ -626,9 +654,32 @@ export class VersusEngine {
       }
       b.x += b.vx * dt;
       b.y += b.vy * dt;
+      // 壁は弾だけを止める。貫通は効かない（遮蔽としての意味を保つため）
+      if (this.hitWall(b)) continue;
       if (b.life > 0 && b.y > -30 && b.y < V_H + 30 && b.x > -30 && b.x < V_W + 30) out.push(b);
     }
     this.bullets = out;
+  }
+
+  /** 弾が壁に当たったら壁を削って true を返す */
+  private hitWall(b: VersusBullet): boolean {
+    for (const w of this.walls) {
+      if (w.hp <= 0) continue;
+      if (Math.abs(b.x - w.x) > (w.w + b.w) / 2) continue;
+      if (Math.abs(b.y - w.y) > (w.h + b.h) / 2) continue;
+      w.hp -= b.dmg;
+      w.hitFlash = 0.12;
+      this.spawnParticles(b.x, b.y, 3, w.hp > 0 ? "#cfd8e6" : "#ffe86b", "spark");
+      if (w.hp <= 0) {
+        this.spawnParticles(w.x, w.y, 14, "#cfd8e6", "spark");
+        this.audio.play("explode", 1.4, 80);
+        this.shake = Math.max(this.shake, 7);
+      } else {
+        this.audio.play("hit", 1.5, 70);
+      }
+      return true;
+    }
+    return false;
   }
 
   /** 追尾先：中立ゾーンの敵を優先し、いなければ相手プレイヤー */
@@ -663,7 +714,7 @@ export class VersusEngine {
       item.x += item.vx * dt;
       item.y += item.vy * dt;
       item.x = clamp(item.x, 14, V_W - 14);
-      item.y = clamp(item.y, TOP_ZONE.top + 10, BOTTOM_ZONE.bottom - 10);
+      item.y = clamp(item.y, this.zones.top.top + 10, this.zones.bottom.bottom - 10);
 
       if (owner.alive && Math.hypot(owner.x - item.x, owner.y - item.y) < 22) {
         this.collectItem(owner, item.kind);

@@ -1,5 +1,6 @@
 import { SilentAudio } from "../../game/audio";
 import { DEFAULT_SETTINGS } from "../../game/constants";
+import { DEFAULT_COURSE } from "../courses";
 import { VersusEngine } from "../engine";
 import { EMPTY_INPUT, type FighterInput, type PlayerId, type VersusConfig } from "../types";
 import {
@@ -54,6 +55,7 @@ const DEFAULT_CONFIG: VersusConfig = {
   cpuLevel: "normal",
   roundsToWin: 2,
   enemyDensity: "normal",
+  course: DEFAULT_COURSE,
 };
 
 /**
