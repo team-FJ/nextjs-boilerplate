@@ -115,7 +115,9 @@ P2P では**進行役の端末が対戦中ずっと画面を開いている必�
 
 ## GitHub Pages へ公開する
 
-`.github/workflows/pages.yml` を用意してあります。`main` またはこのブランチへ push すると、静的ファイルとして書き出して GitHub Pages へ配置します。
+`.github/workflows/pages.yml` を用意してあります。**`main` へ push すると**、静的ファイルとして書き出して GitHub Pages へ配置します。
+
+作業ブランチでは動きません。GitHub Pages の環境は既定でデフォルトブランチからのデプロイしか許可しないため、作業ブランチで走らせても build は通って deploy だけが必ず失敗し、赤いチェックが残るだけになるからです。作業ブランチの内容を公開したいときは main へマージしてください。
 
 **初回だけ**、リポジトリの Settings → Pages → Source を「**GitHub Actions**」に切り替えてください。以後は push するだけで更新されます。
 

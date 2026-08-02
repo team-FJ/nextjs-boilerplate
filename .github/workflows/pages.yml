@@ -9,11 +9,14 @@
 # 「GitHub Actions」に切り替えてください。
 name: Deploy to GitHub Pages
 
+# main への push だけで動かします。
+# 作業ブランチでも動かしていましたが、GitHub Pages の環境は既定で
+# 既定ブランチからのデプロイしか許可しないため、build は通っても deploy が
+# 必ず失敗し、赤いチェックと通知だけが残る状態になっていました。
 on:
   push:
     branches:
       - main
-      - "claude/**"
   workflow_dispatch:
 
 permissions:
