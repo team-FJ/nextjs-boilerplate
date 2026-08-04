@@ -48,3 +48,8 @@ dist/
 .train.mjs
 .pick.mjs
 .islands/
+
+# CPU 学習の中間生成物
+.train.mjs
+.pick.mjs
+.islands/
