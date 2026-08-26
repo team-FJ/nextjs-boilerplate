@@ -87,6 +87,8 @@ export default function RouteApp() {
         profileId: settings.profileId,
         cost: toCostOptions(settings),
         highPrecisionDem: settings.highPrecisionDem,
+        hazardDatasetIds: settings.hazardDatasetIds,
+        hazardSampleRadius: settings.hazardSampleRadius,
         signal: ctrl.signal,
         onProgress: (p) => {
           if (!ctrl.signal.aborted) setProgress(p);
@@ -112,13 +114,13 @@ export default function RouteApp() {
 
   const downloadGpx = useCallback(() => {
     if (!mainRoute) return;
-    const blob = new Blob([toGpx(mainRoute.points, "高台ルート")], {
+    const blob = new Blob([toGpx(mainRoute.points, "避難ルート")], {
       type: "application/gpx+xml",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "takadai-route.gpx";
+    a.download = "hinan-route.gpx";
     a.click();
     URL.revokeObjectURL(url);
   }, [mainRoute]);
@@ -189,9 +191,9 @@ export default function RouteApp() {
 
       <aside className="order-2 flex w-full flex-1 flex-col overflow-y-auto border-t border-slate-200 lg:order-1 lg:h-full lg:w-[400px] lg:flex-none lg:border-r lg:border-t-0 dark:border-slate-800">
         <header className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <h1 className="text-lg font-bold">高台ルート検索</h1>
+          <h1 className="text-lg font-bold">避難ルート検索</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            指定した標高より低い道を通らずに避難するための経路を探します
+            ハザードマップの浸水想定を通らない経路を探します
           </p>
         </header>
 
@@ -222,7 +224,7 @@ export default function RouteApp() {
         <div ref={resultRef} className="border-t border-slate-200 dark:border-slate-800">
           <ResultPanel
             result={result}
-            minElevation={settings.minElevation}
+            settings={settings}
             showShortest={settings.showShortest}
             onHover={setHover}
             onDownloadGpx={downloadGpx}

@@ -2,6 +2,8 @@
  * 地図タイルの定義。すべて出典表示が必要なので、layer ごとに attribution を持たせる。
  */
 
+import { HAZARD_DATASETS } from "./hazard";
+
 export interface TileLayerDef {
   id: string;
   label: string;
@@ -54,41 +56,21 @@ export const BASE_LAYERS: TileLayerDef[] = [
   },
 ];
 
-/** 重ねるハザードマップのタイル。避けたい範囲を目で確かめるために使う。 */
-export const HAZARD_LAYERS: TileLayerDef[] = [
-  {
-    id: "flood",
-    label: "洪水浸水想定（想定最大規模）",
-    url: "https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png",
-    attribution: HAZARD_ATTR,
-    maxZoom: 19,
-    maxNativeZoom: 17,
-  },
-  {
-    id: "tsunami",
-    label: "津波浸水想定",
-    url: "https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_data/{z}/{x}/{y}.png",
-    attribution: HAZARD_ATTR,
-    maxZoom: 19,
-    maxNativeZoom: 17,
-  },
-  {
-    id: "hightide",
-    label: "高潮浸水想定",
-    url: "https://disaportaldata.gsi.go.jp/raster/03_hightide_l2_shinsuishin_data/{z}/{x}/{y}.png",
-    attribution: HAZARD_ATTR,
-    maxZoom: 19,
-    maxNativeZoom: 17,
-  },
-  {
-    id: "doseki",
-    label: "土砂災害警戒区域（土石流）",
-    url: "https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png",
-    attribution: HAZARD_ATTR,
-    maxZoom: 19,
-    maxNativeZoom: 17,
-  },
-];
+/**
+ * 重ねるハザードマップのタイル。
+ * 経路探索で使うデータセット（lib/route/hazard.ts）と同じものを地図にも重ねる。
+ * 定義を 1 か所にまとめておかないと、「画面に出ている区域」と
+ * 「計算で避けている区域」がずれてしまう。
+ */
+export const HAZARD_LAYERS: TileLayerDef[] = HAZARD_DATASETS.map((d) => ({
+  id: d.id,
+  label: d.label,
+  url: d.url(0, 0, 0).replace("/0/0/0.png", "/{z}/{x}/{y}.png"),
+  attribution: HAZARD_ATTR,
+  maxZoom: 19,
+  maxNativeZoom: d.maxNativeZoom,
+  note: d.note,
+}));
 
 export const OSM_ATTRIBUTION =
   '道路データ © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';

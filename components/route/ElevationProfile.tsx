@@ -1,14 +1,37 @@
 "use client";
 
 import { useMemo, useRef } from "react";
+import {
+  HAZARD_INUNDATED,
+  HAZARD_MAPPED,
+  HAZARD_ZONE,
+} from "@/lib/route/hazard";
 import type { RoutePoint } from "@/lib/route/search";
 
 interface Props {
   points: RoutePoint[];
   /** 比較用（通常の最短ルート）。 */
   compare?: RoutePoint[] | null;
+  /** 標高の足切りを表示するか（していない場合は線を出さない）。 */
+  showElevationThreshold: boolean;
   minElevation: number;
+  /** ハザードマップの帯を出すか。 */
+  showHazard: boolean;
   onHover: (p: RoutePoint | null) => void;
+}
+
+/** 想定浸水深の帯の色。凡例の色に合わせてある。 */
+function depthColor(depth: number, flags: number): string | null {
+  if (!(flags & HAZARD_MAPPED)) return "#cbd5e1"; // 未整備
+  if (flags & HAZARD_ZONE) return "#a16207";
+  if (!(flags & HAZARD_INUNDATED)) return null; // 区域外＝色を塗らない
+  if (Number.isNaN(depth)) return "#fca5a5"; // 区域内・深さ不明
+  if (depth <= 0.5) return "#F7F5A9";
+  if (depth <= 3) return "#FFD8C0";
+  if (depth <= 5) return "#FFB7B7";
+  if (depth <= 10) return "#FF9191";
+  if (depth <= 20) return "#F285C9";
+  return "#DC7ADC";
 }
 
 // パネル幅で描かれるので、viewBox は実寸に近くしておく。
@@ -24,7 +47,9 @@ const FONT = 11;
 export default function ElevationProfile({
   points,
   compare,
+  showElevationThreshold,
   minElevation,
+  showHazard,
   onHover,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -49,6 +74,26 @@ export default function ElevationProfile({
   const compareRuns = useMemo(() => splitRuns(compare ?? []), [compare]);
   const thresholdY = view.y(minElevation);
   const areaBottom = H - PAD_B;
+
+  // 想定浸水深の帯。区間ごとに「厳しいほう」の色で塗る。
+  const hazardBands = useMemo(() => {
+    const bands: { from: number; to: number; color: string }[] = [];
+    for (let i = 1; i < points.length; i += 1) {
+      const a = points[i - 1];
+      const b = points[i];
+      const flags = a.hazard | b.hazard;
+      const depth =
+        Number.isNaN(a.depth) || Number.isNaN(b.depth)
+          ? Number.NaN
+          : Math.max(a.depth, b.depth);
+      const color = depthColor(depth, flags);
+      if (!color) continue;
+      const last = bands[bands.length - 1];
+      if (last && last.color === color && last.to === a.dist) last.to = b.dist;
+      else bands.push({ from: a.dist, to: b.dist, color });
+    }
+    return bands;
+  }, [points]);
 
   const ticks = useMemo(() => {
     const step = niceStep((view.yMax - view.yMin) / 4);
@@ -93,26 +138,30 @@ export default function ElevationProfile({
       aria-label="ルートの標高断面図"
     >
       {/* 指定標高より下の帯。ここに線が入っていなければ条件を満たしている。 */}
-      <rect
-        x={PAD_L}
-        y={thresholdY}
-        width={W - PAD_L - PAD_R}
-        height={Math.max(0, areaBottom - thresholdY)}
-        fill="#ef4444"
-        opacity={0.12}
-      />
-      <line
-        x1={PAD_L}
-        x2={W - PAD_R}
-        y1={thresholdY}
-        y2={thresholdY}
-        stroke="#dc2626"
-        strokeWidth={1.5}
-        strokeDasharray="6 5"
-      />
-      <text x={PAD_L + 4} y={thresholdY - 4} fontSize={FONT} fill="#dc2626">
-        通らない標高 {minElevation}m
-      </text>
+      {showElevationThreshold && (
+        <>
+          <rect
+            x={PAD_L}
+            y={thresholdY}
+            width={W - PAD_L - PAD_R}
+            height={Math.max(0, areaBottom - thresholdY)}
+            fill="#ef4444"
+            opacity={0.12}
+          />
+          <line
+            x1={PAD_L}
+            x2={W - PAD_R}
+            y1={thresholdY}
+            y2={thresholdY}
+            stroke="#dc2626"
+            strokeWidth={1.5}
+            strokeDasharray="6 5"
+          />
+          <text x={PAD_L + 4} y={thresholdY - 4} fontSize={FONT} fill="#dc2626">
+            通らない標高 {minElevation}m
+          </text>
+        </>
+      )}
 
       {ticks.map((t) => (
         <g key={t}>
@@ -165,6 +214,18 @@ export default function ElevationProfile({
           />
         </g>
       ))}
+
+      {showHazard &&
+        hazardBands.map((band, i) => (
+          <rect
+            key={`h${i}`}
+            x={view.x(band.from)}
+            y={areaBottom + 2}
+            width={Math.max(0.6, view.x(band.to) - view.x(band.from))}
+            height={5}
+            fill={band.color}
+          />
+        ))}
 
       <text
         x={W - PAD_R}

@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { geocode, type GeocodeHit } from "@/lib/route/geocode";
 import type { LatLng } from "@/lib/route/geo";
+import { HAZARD_DATASETS } from "@/lib/route/hazard";
 import { PROFILES } from "@/lib/route/profiles";
-import { PRESETS, type RouteSettings } from "@/lib/route/settings";
+import { hasNoConstraint, PRESETS, type RouteSettings } from "@/lib/route/settings";
 import { BASE_LAYERS, HAZARD_LAYERS } from "@/lib/route/tiles";
 
 export type PickTarget = "start" | "goal" | null;
@@ -25,11 +26,29 @@ interface Props {
   directDistanceM: number | null;
 }
 
+/** 想定浸水深のしきい値。凡例の段階の上限に合わせてある。 */
+const DEPTH_CHOICES = [
+  { value: 0, label: "区域に入らない", hint: "浸水想定区域を一切通りません（最も厳しい）" },
+  { value: 0.5, label: "0.5m 未満は通る", hint: "くるぶし〜膝下程度の浸水想定は許容します" },
+  { value: 3, label: "3m 未満は通る", hint: "1 階が浸かる想定までは許容します" },
+  { value: 5, label: "5m 未満は通る", hint: "深い浸水想定だけを避けます" },
+];
+
+const DEPTH_SETS = HAZARD_DATASETS.filter((d) => d.kind === "depth");
+const ZONE_SETS = HAZARD_DATASETS.filter((d) => d.kind === "zone");
+
 export default function ControlPanel(p: Props) {
   const { settings: s, onChange } = p;
-  const activePreset = PRESETS.find(
-    (x) => x.minElevation === s.minElevation && x.safetyMargin === s.safetyMargin,
+  const selectedDepthSets = s.hazardDatasetIds.filter((id) =>
+    DEPTH_SETS.some((d) => d.id === id),
   );
+
+  const toggleDataset = (id: string, on: boolean) =>
+    onChange({
+      hazardDatasetIds: on
+        ? [...s.hazardDatasetIds, id]
+        : s.hazardDatasetIds.filter((x) => x !== id),
+    });
 
   return (
     <div className="flex flex-col gap-5 p-4">
@@ -67,68 +86,169 @@ export default function ControlPanel(p: Props) {
         </button>
       </section>
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-2">
         <h2 className="text-sm font-bold tracking-wide text-slate-500 dark:text-slate-400">
-          2. 通らない標高を決める
+          2. 想定する災害
         </h2>
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700/60 dark:bg-amber-950/30">
-          <label className="flex items-baseline gap-2 text-sm font-medium">
-            標高
-            <input
-              type="number"
-              value={s.minElevation}
-              min={-10}
-              max={500}
-              step={1}
-              onChange={(e) =>
-                onChange({ minElevation: clampNumber(e.target.value, -10, 500, 0) })
-              }
-              className="w-24 rounded border border-slate-300 bg-white px-2 py-1 text-right text-lg font-bold tabular-nums dark:border-slate-600 dark:bg-slate-900"
-            />
-            m 未満の道は通らない
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={60}
-            step={1}
-            value={Math.min(60, Math.max(0, s.minElevation))}
-            onChange={(e) => onChange({ minElevation: Number(e.target.value) })}
-            className="mt-2 w-full accent-amber-600"
-            aria-label="通らない標高"
-          />
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                title={preset.description}
-                onClick={() =>
-                  onChange({
-                    minElevation: preset.minElevation,
-                    safetyMargin: preset.safetyMargin,
-                  })
-                }
-                className={`rounded-full border px-2.5 py-1 text-xs ${
-                  activePreset?.id === preset.id
-                    ? "border-amber-600 bg-amber-600 text-white"
-                    : "border-slate-300 hover:bg-white dark:border-slate-600 dark:hover:bg-slate-800"
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-            この高さを下回る道は、遠回りになっても使いません。
-            {activePreset ? `（${activePreset.description}）` : ""}
-          </p>
+        <div className="flex flex-wrap gap-1.5">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              title={preset.description}
+              onClick={() => onChange(preset.patch)}
+              className={`rounded-full border px-2.5 py-1 text-xs ${
+                matchesPreset(s, preset.patch)
+                  ? "border-amber-600 bg-amber-600 text-white"
+                  : "border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
       </section>
 
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-bold tracking-wide text-slate-500 dark:text-slate-400">
+          3. ハザードマップで避ける
+        </h2>
+        <div
+          data-testid="hazard-section"
+          className="rounded-lg border border-sky-300 bg-sky-50 p-3 dark:border-sky-800/60 dark:bg-sky-950/30"
+        >
+          <Check
+            label="ハザードマップの想定浸水深で判定する"
+            hint="ハザードマップが持っているのは「標高」ではなく「想定浸水深」です。避難の可否はこちらが直接の指標になります。"
+            checked={s.hazardEnabled}
+            onChange={(v) => onChange({ hazardEnabled: v })}
+          />
+          {s.hazardEnabled && (
+            <>
+              <fieldset className="mt-3 flex flex-col gap-1.5">
+                <legend className="text-sm font-medium">使う区域図</legend>
+                {DEPTH_SETS.map((d) => (
+                  <label key={d.id} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={s.hazardDatasetIds.includes(d.id)}
+                      onChange={(e) => toggleDataset(d.id, e.target.checked)}
+                    />
+                    <span>
+                      {d.label}
+                      {d.note && (
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">
+                          {d.note}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+                {ZONE_SETS.map((d) => (
+                  <label key={d.id} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={s.hazardDatasetIds.includes(d.id)}
+                      onChange={(e) => toggleDataset(d.id, e.target.checked)}
+                    />
+                    <span>
+                      {d.label}
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">
+                        深さではなく「区域内かどうか」で判定します。
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+
+              {selectedDepthSets.length > 0 && (
+                <fieldset className="mt-3 flex flex-col gap-1.5">
+                  <legend className="text-sm font-medium">どこまで許容するか</legend>
+                  {DEPTH_CHOICES.map((c) => (
+                    <label key={c.value} className="flex items-start gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="hazard-depth"
+                        data-testid={`depth-${c.value}`}
+                        className="mt-1"
+                        checked={s.hazardMaxDepth === c.value}
+                        onChange={() => onChange({ hazardMaxDepth: c.value })}
+                      />
+                      <span>
+                        {c.label}
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">
+                          {c.hint}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              )}
+
+              {s.hazardDatasetIds.length === 0 && (
+                <p className="mt-2 text-xs text-red-700 dark:text-red-400">
+                  区域図が 1 つも選ばれていません。ハザードマップによる判定は働きません。
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-bold tracking-wide text-slate-500 dark:text-slate-400">
+          4. 標高でも制限する（任意）
+        </h2>
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700/60 dark:bg-amber-950/30">
+          <Check
+            label="指定した標高より低い道は通らない"
+            hint="ハザードマップが未整備の区域を補うのに使えます。"
+            checked={s.elevationEnabled}
+            onChange={(v) => onChange({ elevationEnabled: v })}
+          />
+          {s.elevationEnabled && (
+            <>
+              <label className="mt-3 flex items-baseline gap-2 text-sm font-medium">
+                標高
+                <input
+                  type="number"
+                  value={s.minElevation}
+                  min={-10}
+                  max={500}
+                  step={1}
+                  onChange={(e) =>
+                    onChange({ minElevation: clampNumber(e.target.value, -10, 500, 0) })
+                  }
+                  className="w-24 rounded border border-slate-300 bg-white px-2 py-1 text-right text-lg font-bold tabular-nums dark:border-slate-600 dark:bg-slate-900"
+                />
+                m 未満の道は通らない
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={60}
+                step={1}
+                value={Math.min(60, Math.max(0, s.minElevation))}
+                onChange={(e) => onChange({ minElevation: Number(e.target.value) })}
+                className="mt-2 w-full accent-amber-600"
+                aria-label="通らない標高"
+              />
+            </>
+          )}
+        </div>
+      </section>
+
+      {hasNoConstraint(s) && (
+        <p className="rounded border-l-4 border-red-600 bg-red-50 px-3 py-2 text-xs leading-relaxed dark:bg-red-950/30">
+          ハザードマップも標高も条件に入っていません。このままだと通常の最短ルートと同じものが出ます。
+        </p>
+      )}
+
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-bold tracking-wide text-slate-500 dark:text-slate-400">
-          3. 移動手段
+          5. 移動手段
         </h2>
         <div className="flex gap-2">
           {Object.values(PROFILES).map((profile) => (
@@ -154,7 +274,35 @@ export default function ControlPanel(p: Props) {
         </summary>
         <div className="flex flex-col gap-4 border-t border-slate-200 p-3 dark:border-slate-700">
           <Slider
-            label="安全のための余裕"
+            label="浸水想定をどれだけ避けるか"
+            hint="しきい値を満たしていても、浸かる想定の道より浸からない道を選びます。"
+            value={s.hazardBias}
+            min={0}
+            max={10}
+            step={0.5}
+            onChange={(v) => onChange({ hazardBias: v })}
+          />
+          <Check
+            label="区域内で深さが読めない道を避ける"
+            hint="着色はされているのに凡例の色に一致しない場合、安全側に倒して避けます。"
+            checked={s.hazardAvoidUnknownDepth}
+            onChange={(v) => onChange({ hazardAvoidUnknownDepth: v })}
+          />
+          <Check
+            label="ハザードマップ未整備の区域も通る"
+            hint="区域図が無い場所は判定できません。外すと、そこを一切通らなくなります。"
+            checked={s.hazardAllowUnmapped}
+            onChange={(v) => onChange({ hazardAllowUnmapped: v })}
+          />
+          <Check
+            label="判定を周囲 1 画素まで広げる"
+            hint="道が区域の境界ぎりぎりに描かれている場合の取りこぼしを防ぎます。"
+            checked={s.hazardSampleRadius > 0}
+            onChange={(v) => onChange({ hazardSampleRadius: v ? 1 : 0 })}
+          />
+          <hr className="border-slate-200 dark:border-slate-700" />
+          <Slider
+            label="標高の安全マージン"
             hint="この高さまでは「低め」と見なして、なるべく通らないようにします。"
             value={s.safetyMargin}
             min={0}
@@ -183,18 +331,6 @@ export default function ControlPanel(p: Props) {
             onChange={(v) => onChange({ climbPenaltyPerM: v })}
           />
           <Check
-            label="トンネル・地下道を避ける"
-            hint="浸水・崩落のおそれがあるため、既定で避けます。"
-            checked={s.avoidUnderground}
-            onChange={(v) => onChange({ avoidUnderground: v })}
-          />
-          <Check
-            label="階段を避ける"
-            hint="車いす・ベビーカーなどで移動する場合に。"
-            checked={s.avoidSteps}
-            onChange={(v) => onChange({ avoidSteps: v })}
-          />
-          <Check
             label="標高が分からない道も通る"
             hint="標高タイルが無い区域（整備範囲外など）の道を許可します。"
             checked={s.allowUnknownElevation}
@@ -205,6 +341,19 @@ export default function ControlPanel(p: Props) {
             hint="精度は上がりますが、読み込みが増えます。整備範囲外は自動で 10m メッシュに戻ります。"
             checked={s.highPrecisionDem}
             onChange={(v) => onChange({ highPrecisionDem: v })}
+          />
+          <hr className="border-slate-200 dark:border-slate-700" />
+          <Check
+            label="トンネル・地下道を避ける"
+            hint="浸水・崩落のおそれがあるため、既定で避けます。"
+            checked={s.avoidUnderground}
+            onChange={(v) => onChange({ avoidUnderground: v })}
+          />
+          <Check
+            label="階段を避ける"
+            hint="車いす・ベビーカーなどで移動する場合に。"
+            checked={s.avoidSteps}
+            onChange={(v) => onChange({ avoidSteps: v })}
           />
         </div>
       </details>
@@ -257,7 +406,7 @@ export default function ControlPanel(p: Props) {
           />
           <Check
             label="通常の最短ルートも表示する"
-            hint="標高を考えない従来のルートを灰色の点線で重ねます。"
+            hint="災害を考えない従来のルートを灰色の点線で重ねます。"
             checked={s.showShortest}
             onChange={(v) => onChange({ showShortest: v })}
           />
@@ -267,7 +416,7 @@ export default function ControlPanel(p: Props) {
       {p.directDistanceM !== null && p.directDistanceM > 8000 && (
         <p className="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-relaxed dark:bg-amber-950/30">
           2 地点が {Math.round(p.directDistanceM / 1000)}km 離れています。
-          範囲が広いほど道路データの読み込みに時間がかかります（数十秒かかることがあります）。
+          範囲が広いほど道路データとハザードマップの読み込みに時間がかかります。
         </p>
       )}
       <button
@@ -280,6 +429,17 @@ export default function ControlPanel(p: Props) {
       </button>
     </div>
   );
+}
+
+/** 目安ボタンが今の設定と一致しているか。 */
+function matchesPreset(s: RouteSettings, patch: Partial<RouteSettings>): boolean {
+  return Object.entries(patch).every(([key, value]) => {
+    const cur = s[key as keyof RouteSettings];
+    if (Array.isArray(value) && Array.isArray(cur)) {
+      return value.length === cur.length && value.every((v) => cur.includes(v as never));
+    }
+    return cur === value;
+  });
 }
 
 function clampNumber(raw: string, lo: number, hi: number, fallback: number): number {
@@ -331,9 +491,10 @@ function Check(props: {
 }) {
   return (
     <label className="flex flex-col gap-0.5 text-sm">
-      <span className="flex items-center gap-2">
+      <span className="flex items-start gap-2">
         <input
           type="checkbox"
+          className="mt-1"
           checked={props.checked}
           onChange={(e) => props.onChange(e.target.checked)}
         />

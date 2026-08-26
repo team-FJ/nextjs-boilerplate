@@ -107,18 +107,22 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
-/** 8bit RGB の PNG を作る。pixels は width*height*3 のバイト列。 */
-function encodePng(width, height, pixels) {
-  const raw = Buffer.alloc(height * (1 + width * 3));
+/**
+ * 8bit の PNG を作る。channels が 3 なら RGB、4 なら RGBA。
+ * ハザードマップのタイルは「区域外は透明」なのでアルファが要る。
+ */
+function encodePng(width, height, pixels, channels = 3) {
+  const stride = width * channels;
+  const raw = Buffer.alloc(height * (1 + stride));
   for (let y = 0; y < height; y += 1) {
-    raw[y * (1 + width * 3)] = 0; // フィルタ None
-    pixels.copy(raw, y * (1 + width * 3) + 1, y * width * 3, (y + 1) * width * 3);
+    raw[y * (1 + stride)] = 0; // フィルタ None
+    pixels.copy(raw, y * (1 + stride) + 1, y * stride, (y + 1) * stride);
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8; // bit depth
-  ihdr[9] = 2; // color type: truecolor
+  ihdr[9] = channels === 4 ? 6 : 2; // color type: truecolor / truecolor+alpha
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", ihdr),
@@ -142,6 +146,26 @@ function demTilePng(z, tx, ty) {
     }
   }
   return encodePng(SIZE, SIZE, pixels);
+}
+
+/** 低地の帯を「洪水浸水想定区域（3〜5m）」として塗ったタイル。区域外は透明。 */
+const FLOOD_COLOR = [255, 183, 183];
+function hazardTilePng(z, tx, ty) {
+  const pixels = Buffer.alloc(SIZE * SIZE * 4);
+  for (let iy = 0; iy < SIZE; iy += 1) {
+    const lat = tileYToLat(ty + (iy + 0.5) / SIZE, z);
+    for (let ix = 0; ix < SIZE; ix += 1) {
+      const lon = tileXToLon(tx + (ix + 0.5) / SIZE, z);
+      const p = (iy * SIZE + ix) * 4;
+      if (terrain(lat, lon) < 10) {
+        pixels[p] = FLOOD_COLOR[0];
+        pixels[p + 1] = FLOOD_COLOR[1];
+        pixels[p + 2] = FLOOD_COLOR[2];
+        pixels[p + 3] = 255;
+      }
+    }
+  }
+  return encodePng(SIZE, SIZE, pixels, 4);
 }
 
 // -------------------------------------------------------------------- 実行部
@@ -229,6 +253,7 @@ async function main() {
 
     // --- 外部サービスの差し替え ---------------------------------------
     let demRequests = 0;
+    let hazardRequests = 0;
 
     await page.route("**/api/interpreter", async (route) => {
       const body = route.request().postData() ?? "";
@@ -254,6 +279,21 @@ async function main() {
     await page.route("**/disaportaldata.gsi.go.jp/**", (route) =>
       route.fulfill({ status: 404, headers: CORS, body: "" }),
     );
+
+    await page.route("**/01_flood_l2_shinsuishin_data/**", async (route) => {
+      const m = route.request().url().match(/\/(\d+)\/(\d+)\/(\d+)\.png$/);
+      if (!m) return route.fulfill({ status: 404, headers: CORS, body: "" });
+      // ズーム 14 だけ用意する（別のズームを読みにきたら未整備扱いになる）。
+      if (Number(m[1]) !== 14) {
+        return route.fulfill({ status: 404, headers: CORS, body: "" });
+      }
+      hazardRequests += 1;
+      await route.fulfill({
+        status: 200,
+        headers: { ...CORS, "content-type": "image/png" },
+        body: hazardTilePng(+m[1], +m[2], +m[3]),
+      });
+    });
 
     await page.route("**/dem_png/**", async (route) => {
       const m = route.request().url().match(/\/(\d+)\/(\d+)\/(\d+)\.png$/);
@@ -298,43 +338,68 @@ async function main() {
     check("出発地の座標が反映される", startText.includes("35.00000"), startText.replace(/\n/g, " | "));
     check("目的地の座標が反映される", goalText.includes("139.02200"), goalText.replace(/\n/g, " | "));
 
-    await page.getByLabel("通らない標高").fill("10");
-    // number 入力にも同じ値を入れる（スライダーと数値欄は連動している）。
-    await page.locator('input[type="number"]').fill("10");
-    await page.locator('input[type="number"]').blur();
-
-    await page.getByRole("button", { name: "ルートを探す" }).click();
-    try {
-      await page.waitForSelector("text=標高の断面", { timeout: 60000 });
-    } catch (e) {
-      console.log("--- 画面の内容 ---");
-      console.log((await page.locator("aside").innerText()).slice(0, 2000));
-      throw e;
-    }
-
     const readStat = async (label) =>
       (await page.locator(`[data-stat="${label}"] dd`).innerText()).trim();
 
-    const minEle = parseFloat(await readStat("最低標高"));
+    const search = async () => {
+      await page.getByRole("button", { name: "ルートを探す" }).click();
+      try {
+        await page.waitForSelector("text=標高の断面と浸水想定", { timeout: 60000 });
+      } catch (e) {
+        console.log("--- 画面の内容 ---");
+        console.log((await page.locator("aside").innerText()).slice(0, 2000));
+        throw e;
+      }
+    };
+
+    // --- 1回目: 既定のハザードマップ判定 --------------------------------
+    await search();
+
+    check("ハザードマップを読みに行っている", hazardRequests > 0, `${hazardRequests} 枚`);
+    check("標高タイルも読みに行っている", demRequests > 0, `${demRequests} 枚`);
+
+    const depth = await readStat("最大想定浸水深");
+    check("浸水想定区域を通らない結果になる", depth === "浸水想定なし", depth);
+
     const distance = await readStat("距離");
-    check("標高タイルを読みに行っている", demRequests > 0, `${demRequests} 枚`);
+    check(
+      "区域を迂回したぶん直線より長い",
+      distance.includes("km") && parseFloat(distance) > 2.2,
+      `距離 ${distance}`,
+    );
+
+    const comparison = await page.locator("text=/最短ルートは浸水想定区域を/").count();
+    check("最短ルートが区域を通ることを示す", comparison > 0);
+
+    const polylines = await page.locator(".leaflet-overlay-pane path").count();
+    check("経路が地図に描かれる", polylines >= 2, `${polylines} 本`);
+
+    // --- 2回目: 標高だけで判断する目安に切り替える ----------------------
+    await page.getByRole("button", { name: "標高だけで判断" }).click();
+    const eleInput = page.locator('input[type="number"]');
+    check("標高の入力欄が現れる", (await eleInput.count()) === 1);
+    await eleInput.fill("10");
+    await eleInput.blur();
+    await search();
+
+    const minEle = parseFloat(await readStat("最低標高"));
     check(
       "画面に出た最低標高が条件を満たす",
       minEle >= 10,
       `最低標高 ${minEle}m（指定 10m）`,
     );
-    const km = parseFloat(distance);
-    check(
-      "低地を迂回したぶん直線より長い",
-      distance.includes("km") && km > 2.2,
-      `距離 ${distance}`,
-    );
+    const threshold = await page.locator("text=通らない標高 10m").count();
+    check("断面図にしきい値の線が出る", threshold > 0);
 
-    const polylines = await page.locator(".leaflet-overlay-pane path").count();
-    check("経路が地図に描かれる", polylines >= 2, `${polylines} 本`);
+    // --- 3回目: 浅い浸水は許容して、断面図の帯が出ることを確かめる --------
+    await page.getByRole("button", { name: "洪水（想定最大規模）" }).click();
+    await page.getByTestId("depth-5").check();
+    await search();
 
-    const warnings = await page.locator("text=通らない標高 10m").count();
-    check("断面図にしきい値の線が出る", warnings > 0);
+    const throughDepth = await readStat("最大想定浸水深");
+    check("許容すれば区域内を通る", throughDepth === "5m 未満", throughDepth);
+    const bands = await page.locator('svg rect[fill="#FFB7B7"]').count();
+    check("断面図に想定浸水深の帯が出る", bands > 0, `${bands} 区間`);
 
     // 結果は設定欄の下に積まれるので、自動で見える位置まで送られるはず。
     await page.waitForTimeout(1000);

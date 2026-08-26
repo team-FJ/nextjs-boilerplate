@@ -14,8 +14,14 @@
  */
 
 import { clamp, latToTileY, lonToTileX, type BBox } from "./geo";
+import {
+  createBrowserRgbaLoader,
+  runPool,
+  TILE_SIZE,
+  type RgbaLoader,
+} from "./tileFetch";
 
-export const TILE_SIZE = 256;
+export { TILE_SIZE };
 /** 標高タイルの無効値。PNG では (128, 0, 0)。 */
 const INVALID = 1 << 23;
 
@@ -71,32 +77,12 @@ export function decodeDemTile(rgba: Uint8ClampedArray | Uint8Array): Float32Arra
   return out;
 }
 
-/** ブラウザ用のタイル取得。CORS が効いた画像を canvas 経由で読み出す。 */
+/** ブラウザ用のタイル取得。読んだ画素をその場で標高へ変換する。 */
 export function createBrowserTileLoader(signal?: AbortSignal): TileLoader {
+  const load: RgbaLoader = createBrowserRgbaLoader(signal);
   return async (url) => {
-    const res = await fetch(url, { signal, mode: "cors" });
-    // 海域や整備範囲外は 404 が返る。エラーではなく「データなし」として扱う。
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const bitmap = await createImageBitmap(blob);
-    try {
-      const canvas =
-        typeof OffscreenCanvas !== "undefined"
-          ? new OffscreenCanvas(bitmap.width, bitmap.height)
-          : Object.assign(document.createElement("canvas"), {
-              width: bitmap.width,
-              height: bitmap.height,
-            });
-      const ctx = (canvas as HTMLCanvasElement).getContext("2d", {
-        willReadFrequently: true,
-      });
-      if (!ctx) return null;
-      ctx.drawImage(bitmap as CanvasImageSource, 0, 0);
-      const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
-      return decodeDemTile(data);
-    } finally {
-      bitmap.close();
-    }
+    const rgba = await load(url);
+    return rgba ? decodeDemTile(rgba) : null;
   };
 }
 
@@ -226,21 +212,4 @@ export function tileKeysFor(bbox: BBox, zoom: number): { x: number; y: number }[
     for (let x = x0; x <= x1; x += 1) keys.push({ x, y });
   }
   return keys;
-}
-
-/** 同時実行数を抑えて配列を処理する（サーバーに負荷をかけないため）。 */
-async function runPool<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<void>,
-): Promise<void> {
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const item = items[cursor];
-      cursor += 1;
-      await fn(item);
-    }
-  });
-  await Promise.all(workers);
 }

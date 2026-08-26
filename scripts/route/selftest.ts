@@ -25,9 +25,17 @@ import {
   type LatLng,
 } from "../../lib/route/geo";
 import { buildGraph } from "../../lib/route/graph";
+import {
+  findDataset,
+  HAZARD_INUNDATED,
+  HAZARD_MAPPED,
+  HazardSampler,
+  matchRank,
+} from "../../lib/route/hazard";
 import type { OsmWay } from "../../lib/route/overpass";
 import { PROFILES } from "../../lib/route/profiles";
 import { searchRoute } from "../../lib/route/search";
+import type { RgbaLoader } from "../../lib/route/tileFetch";
 
 let failures = 0;
 let checks = 0;
@@ -87,6 +95,39 @@ function synthTileLoader(zoom: number): TileLoader {
       }
     }
     return decodeDemTile(rgba);
+  };
+}
+
+/**
+ * 合成のハザードマップタイル。
+ * 低地の帯と同じ範囲を「洪水浸水想定区域（3〜5m）」として塗る。
+ * 洪水以外のデータセットは 404（＝未整備）にして、判定できない場合も再現する。
+ */
+const FLOOD_RANK_COLOR: [number, number, number] = [255, 183, 183]; // 3〜5m
+
+function synthHazardLoader(zoom = 14): RgbaLoader {
+  return async (url: string) => {
+    if (!url.includes("01_flood_l2_shinsuishin_data")) return null;
+    const m = url.match(/\/(\d+)\/(\d+)\/(\d+)\.png$/);
+    if (!m) return null;
+    const [z, tx, ty] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (z !== zoom) return null;
+    const rgba = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
+    for (let iy = 0; iy < TILE_SIZE; iy += 1) {
+      const lat = tileYToLat(ty + (iy + 0.5) / TILE_SIZE, z);
+      for (let ix = 0; ix < TILE_SIZE; ix += 1) {
+        const lon = tileXToLon(tx + (ix + 0.5) / TILE_SIZE, z);
+        const p = (iy * TILE_SIZE + ix) * 4;
+        if (terrain(lat, lon) < 10) {
+          rgba[p] = FLOOD_RANK_COLOR[0];
+          rgba[p + 1] = FLOOD_RANK_COLOR[1];
+          rgba[p + 2] = FLOOD_RANK_COLOR[2];
+          rgba[p + 3] = 255;
+        }
+        // 区域外は透明のまま（＝浸水想定なし）
+      }
+    }
+    return rgba;
   };
 }
 
@@ -307,6 +348,128 @@ async function main() {
     check("低地の出発地は条件を満たす道へ寄せられる", fromLow.startSnap.relaxed);
     check("寄せた地点の標高は条件を満たす", fromLow.startSnap.elevation >= 10);
     check("そこからのルートは出る", !!fromLow.safe);
+  }
+
+  console.log("\n== 凡例の色あわせ ==");
+  {
+    const ranks = findDataset("flood_l2")!.ranks;
+    const exact = matchRank(ranks, [255, 183, 183, 255]);
+    const near = matchRank(ranks, [250, 180, 186, 255]); // 輪郭のにじみ想定
+    const far = matchRank(ranks, [10, 90, 200, 255]); // 河川の青など
+    check("凡例の色を段階に戻せる", exact?.max === 5, `${exact?.label}`);
+    check("多少ずれた色も同じ段階に寄る", near?.max === 5, `${near?.label}`);
+    check("無関係な色は段階に寄せない", far === null);
+  }
+
+  console.log("\n== ハザードマップの読み取り ==");
+  {
+    const sampler = new HazardSampler(
+      [findDataset("flood_l2")!],
+      synthHazardLoader(),
+      1,
+    );
+    await sampler.prepare(bbox);
+    const inside = sampler.sample(LAT0, (LOW_LON_MIN + LOW_LON_MAX) / 2);
+    const outside = sampler.sample(LAT0, LON0);
+    check("区域内は想定浸水深が読める", inside.depth === 5, `${inside.label}`);
+    check("区域内のフラグが立つ", (inside.flags & HAZARD_INUNDATED) !== 0);
+    check("区域外は浸水想定なし", outside.depth === 0);
+    check("区域外でもタイルは整備済み", (outside.flags & HAZARD_MAPPED) !== 0);
+
+    const unmapped = new HazardSampler(
+      [findDataset("tsunami")!],
+      synthHazardLoader(),
+      1,
+    );
+    await unmapped.prepare(bbox);
+    const none = unmapped.sample(LAT0, LON0);
+    check("タイルが無ければ未整備と分かる", (none.flags & HAZARD_MAPPED) === 0);
+  }
+
+  console.log("\n== ハザードマップでルートを選ぶ ==");
+  const hazardCommon = {
+    ...common,
+    loadHazardTile: synthHazardLoader(),
+    hazardDatasetIds: ["flood_l2"],
+  };
+  // 標高の条件は切って、ハザードマップだけで判断させる。
+  const hazardOnly = {
+    ...DEFAULT_COST,
+    minElevation: Number.NEGATIVE_INFINITY,
+    highGroundBias: 0,
+    climbPenaltyPerM: 0,
+    allowUnknownElevation: true,
+    hazardEnabled: true,
+  };
+
+  {
+    const avoided = await searchRoute({
+      ...hazardCommon,
+      cost: { ...hazardOnly, hazardMaxDepth: 0 },
+    });
+    check("浸水想定区域を避けたルートが出る", !!avoided.safe);
+    if (avoided.safe) {
+      check(
+        "区域内を 1m も通らない",
+        avoided.safe.stats.inundatedM === 0,
+        `${avoided.safe.stats.inundatedM.toFixed(0)}m`,
+      );
+      check(
+        "最短ルートは区域内を通ってしまう",
+        (avoided.shortest?.stats.inundatedM ?? 0) > 0,
+        `${Math.round(avoided.shortest?.stats.inundatedM ?? 0)}m`,
+      );
+      check(
+        "避けたぶん遠回りになる",
+        avoided.safe.stats.distanceM > (avoided.shortest?.stats.distanceM ?? 0),
+        `${Math.round(avoided.shortest?.stats.distanceM ?? 0)}m → ${Math.round(
+          avoided.safe.stats.distanceM,
+        )}m`,
+      );
+    }
+
+    // 3〜5m の段階は上限 5m。5m まで許容すれば通れるようになる。
+    const allowed = await searchRoute({
+      ...hazardCommon,
+      cost: { ...hazardOnly, hazardMaxDepth: 5, hazardBias: 0 },
+    });
+    check(
+      "許容する深さを上げれば区域内を通る",
+      (allowed.safe?.stats.inundatedM ?? 0) > 0,
+      `${Math.round(allowed.safe?.stats.inundatedM ?? 0)}m`,
+    );
+    check(
+      "そのぶん距離は短くなる",
+      (allowed.safe?.stats.distanceM ?? Infinity) <
+        (avoided.safe?.stats.distanceM ?? 0),
+    );
+  }
+
+  {
+    // 津波の区域図はこの範囲に無い（＝未整備）。
+    const unmapped = await searchRoute({
+      ...hazardCommon,
+      hazardDatasetIds: ["tsunami"],
+      cost: { ...hazardOnly, hazardMaxDepth: 0 },
+    });
+    check("未整備でもルート自体は出る", !!unmapped.safe);
+    check(
+      "未整備であることを警告する",
+      unmapped.warnings.some((w) => w.includes("整備")),
+      unmapped.warnings[0] ?? "",
+    );
+    check(
+      "未整備の距離が集計される",
+      (unmapped.safe?.stats.unmappedM ?? 0) > 0,
+      `${Math.round(unmapped.safe?.stats.unmappedM ?? 0)}m`,
+    );
+
+    const strict = await searchRoute({
+      ...hazardCommon,
+      hazardDatasetIds: ["tsunami"],
+      cost: { ...hazardOnly, hazardMaxDepth: 0, hazardAllowUnmapped: false },
+    });
+    check("未整備を通らない設定なら経路は出ない", strict.safe === null);
   }
 
   console.log("\n== 高台優先の強さ ==");

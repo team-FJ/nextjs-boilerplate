@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import RouteMount from "@/components/route/RouteMount";
 
 export const metadata: Metadata = {
-  title: "高台ルート検索 — 低い道を通らない災害時の避難経路",
+  title: "避難ルート検索 — 浸水想定を通らない災害時の経路",
   description:
-    "指定した標高より低い道を一切通らずに、出発地から目的地までの経路を探します。道路データは OpenStreetMap、標高は国土地理院の標高タイルを使い、ブラウザだけで計算します。",
+    "ハザードマップの想定浸水深を読み取り、浸水する想定の道を通らずに出発地から目的地までの経路を探します。道路データは OpenStreetMap、浸水想定はハザードマップポータルサイト、標高は国土地理院の標高タイルを使い、ブラウザだけで計算します。",
 };
 
 export default function RoutePage() {

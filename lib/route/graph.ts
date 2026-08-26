@@ -7,6 +7,12 @@
 
 import { coordKey, haversine, type LatLng } from "./geo";
 import type { DemSampler } from "./dem";
+import {
+  HAZARD_INUNDATED,
+  HAZARD_MAPPED,
+  SAFE_SAMPLE,
+  type HazardSampler,
+} from "./hazard";
 import type { OsmWay } from "./overpass";
 import { isSteps, isUnderground, type Profile } from "./profiles";
 
@@ -25,6 +31,10 @@ export interface RoadGraph {
   nodeLon: Float64Array;
   /** 標高[m]。データが無ければ NaN。 */
   nodeEle: Float32Array;
+  /** ハザードマップから読んだ想定浸水深[m]。区域外は 0、深さ不明は NaN。 */
+  nodeDepth: Float32Array;
+  /** ハザード判定のビットフラグ（lib/route/hazard.ts）。 */
+  nodeHazard: Uint8Array;
   edgeCount: number;
   edgeFrom: Int32Array;
   edgeTo: Int32Array;
@@ -43,6 +53,10 @@ export interface BuildGraphResult {
   graph: RoadGraph;
   /** 標高が取れなかった節点の数。 */
   unknownElevation: number;
+  /** ハザードマップが整備されていなかった節点の数。 */
+  unmappedHazard: number;
+  /** 浸水想定区域の中にあった節点の数。 */
+  inundatedNodes: number;
 }
 
 function isOnewayForward(tags: Record<string, string>): boolean {
@@ -60,6 +74,7 @@ export function buildGraph(
   ways: OsmWay[],
   profile: Profile,
   dem: DemSampler | null,
+  hazard: HazardSampler | null = null,
 ): BuildGraphResult {
   const nodeIndex = new Map<string | number, number>();
   const lat: number[] = [];
@@ -128,11 +143,24 @@ export function buildGraph(
 
   const nodeCount = lat.length;
   const nodeEle = new Float32Array(nodeCount);
+  const nodeDepth = new Float32Array(nodeCount);
+  const nodeHazard = new Uint8Array(nodeCount);
   let unknownElevation = 0;
+  let unmappedHazard = 0;
+  let inundatedNodes = 0;
+  const useHazard = hazard?.enabled ?? false;
   for (let i = 0; i < nodeCount; i += 1) {
     const e = dem ? dem.sample(lat[i], lon[i]) : Number.NaN;
     nodeEle[i] = e;
     if (Number.isNaN(e)) unknownElevation += 1;
+
+    const h = useHazard ? hazard!.sample(lat[i], lon[i]) : SAFE_SAMPLE;
+    nodeDepth[i] = h.depth;
+    nodeHazard[i] = h.flags;
+    if (useHazard) {
+      if (!(h.flags & HAZARD_MAPPED)) unmappedHazard += 1;
+      if (h.flags & HAZARD_INUNDATED) inundatedNodes += 1;
+    }
   }
 
   // 隣接リストを CSR に詰め直す。
@@ -156,6 +184,8 @@ export function buildGraph(
       nodeLat,
       nodeLon,
       nodeEle,
+      nodeDepth,
+      nodeHazard,
       edgeCount,
       edgeFrom: Int32Array.from(edgeFrom),
       edgeTo: Int32Array.from(edgeTo),
@@ -167,6 +197,8 @@ export function buildGraph(
       index: new GridIndex(nodeLat, nodeLon),
     },
     unknownElevation,
+    unmappedHazard,
+    inundatedNodes,
   };
 }
 

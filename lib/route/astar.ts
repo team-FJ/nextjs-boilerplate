@@ -13,6 +13,7 @@
 
 import { clamp, haversine } from "./geo";
 import type { RoadGraph } from "./graph";
+import { HAZARD_MAPPED, HAZARD_ZONE } from "./hazard";
 
 export interface CostOptions {
   /** これ未満の標高の道は通らない[m]（ハード制約）。 */
@@ -29,7 +30,26 @@ export interface CostOptions {
   avoidSteps: boolean;
   /** 標高が取得できなかった道を通ってよいか。 */
   allowUnknownElevation: boolean;
+
+  /** ハザードマップによる判定を使うか。 */
+  hazardEnabled: boolean;
+  /**
+   * 想定浸水深がこれを超える道は通らない[m]。
+   * 0 なら「浸水想定区域には一切入らない」という意味になる。
+   */
+  hazardMaxDepth: number;
+  /** 区域内だが凡例の色に一致せず、深さが読めない道を避ける。 */
+  hazardAvoidUnknownDepth: boolean;
+  /** ハザードマップが未整備の区域の道を通ってよいか。 */
+  hazardAllowUnmapped: boolean;
+  /** 土砂災害警戒区域などの「区域内かどうか」で判定するものを避ける。 */
+  hazardAvoidZones: boolean;
+  /** しきい値以下でも浸水想定区域をどれだけ避けるか。 */
+  hazardBias: number;
 }
+
+/** 浸水深のペナルティを最大にする深さ[m]。これ以上は同じ重さに扱う。 */
+const HAZARD_DEPTH_REF = 5;
 
 export const DEFAULT_COST: CostOptions = {
   minElevation: 5,
@@ -39,6 +59,12 @@ export const DEFAULT_COST: CostOptions = {
   avoidUnderground: true,
   avoidSteps: false,
   allowUnknownElevation: false,
+  hazardEnabled: false,
+  hazardMaxDepth: 0,
+  hazardAvoidUnknownDepth: true,
+  hazardAllowUnmapped: true,
+  hazardAvoidZones: true,
+  hazardBias: 2,
 };
 
 /** 辺の代表標高＝両端のうち低いほう。低いほうで判定しないと谷を見逃す。 */
@@ -50,13 +76,42 @@ export function edgeMinElevation(g: RoadGraph, e: number): number {
   return Math.min(a, b);
 }
 
+/**
+ * 辺の代表的なハザード判定。
+ * 両端のうち「厳しいほう」を採る。深さ不明が混じれば不明のまま扱う。
+ */
+export function edgeHazard(
+  g: RoadGraph,
+  e: number,
+): { depth: number; flags: number } {
+  const a = g.edgeFrom[e];
+  const b = g.edgeTo[e];
+  const da = g.nodeDepth[a];
+  const db = g.nodeDepth[b];
+  const depth = Number.isNaN(da) || Number.isNaN(db) ? Number.NaN : Math.max(da, db);
+  return { depth, flags: g.nodeHazard[a] | g.nodeHazard[b] };
+}
+
 export function isEdgeAllowed(g: RoadGraph, e: number, o: CostOptions): boolean {
   const way = g.ways[g.edgeWay[e]];
   if (o.avoidUnderground && way.underground) return false;
   if (o.avoidSteps && way.steps) return false;
+
+  if (o.hazardEnabled && !isHazardAllowed(g, e, o)) return false;
+
   const ele = edgeMinElevation(g, e);
   if (Number.isNaN(ele)) return o.allowUnknownElevation;
   return ele >= o.minElevation;
+}
+
+function isHazardAllowed(g: RoadGraph, e: number, o: CostOptions): boolean {
+  const { depth, flags } = edgeHazard(g, e);
+  if (o.hazardAvoidZones && flags & HAZARD_ZONE) return false;
+  // タイルが 1 枚も無い＝その市区町村でハザードマップが未整備。
+  // 判定できないだけで「危険」ではないので、既定では通す（警告は別に出す）。
+  if (!(flags & HAZARD_MAPPED)) return o.hazardAllowUnmapped;
+  if (Number.isNaN(depth)) return !o.hazardAvoidUnknownDepth;
+  return depth <= o.hazardMaxDepth;
 }
 
 export function edgeWeight(g: RoadGraph, e: number, o: CostOptions): number {
@@ -79,7 +134,24 @@ export function edgeWeight(g: RoadGraph, e: number, o: CostOptions): number {
   const climb =
     Number.isNaN(from) || Number.isNaN(to) ? 0 : Math.max(0, to - from);
 
-  return len * (1 + o.highGroundBias * lowness) + o.climbPenaltyPerM * climb;
+  return (
+    len * (1 + o.highGroundBias * lowness + o.hazardBias * hazardLowness(g, e, o)) +
+    o.climbPenaltyPerM * climb
+  );
+}
+
+/**
+ * ハザードの「避けたさ」を 0〜1 で返す。
+ * しきい値を満たしていても、浸かる想定の道より浸からない道を選ばせるために使う。
+ */
+function hazardLowness(g: RoadGraph, e: number, o: CostOptions): number {
+  if (!o.hazardEnabled) return 0;
+  const { depth, flags } = edgeHazard(g, e);
+  if (flags & HAZARD_ZONE) return 1;
+  if (Number.isNaN(depth)) return 1;
+  if (depth > 0) return clamp(depth / HAZARD_DEPTH_REF, 0.25, 1);
+  // 未整備の区域は判定できないぶんだけ、わずかに割高にしておく。
+  return flags & HAZARD_MAPPED ? 0 : 0.15;
 }
 
 /** f 値の小さい順に取り出す二分ヒープ。 */
