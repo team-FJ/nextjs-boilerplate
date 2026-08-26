@@ -13,9 +13,12 @@
     "breakout-sim": "esbuild scripts/breakout/sim.ts --bundle --platform=node --format=esm --outfile=.breakout-sim.mjs && node .breakout-sim.mjs",
     "breakout-browser": "node scripts/breakout/browser-check.mjs",
     "breakout-netsim": "esbuild scripts/breakout/netsim.ts --bundle --platform=node --format=esm --outfile=.breakout-netsim.mjs && node .breakout-netsim.mjs",
-    "spin-rally-standalone": "node scripts/standalone/spin-rally.mjs"
+    "spin-rally-standalone": "node scripts/standalone/spin-rally.mjs",
+    "route-selftest": "esbuild scripts/route/selftest.ts --bundle --platform=node --format=esm --outfile=.route-selftest.mjs && node .route-selftest.mjs",
+    "route-browser": "node scripts/route/browser-check.mjs"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
     "next": "16.0.4",
     "peerjs": "^1.5.5",
     "react": "19.2.0",
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
