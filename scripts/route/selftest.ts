@@ -34,6 +34,7 @@ import {
 } from "../../lib/route/hazard";
 import type { OsmWay } from "../../lib/route/overpass";
 import { PROFILES } from "../../lib/route/profiles";
+import { countColors, diagnose, type TileProbe } from "../../lib/route/diagnose";
 import { searchRoute } from "../../lib/route/search";
 import type { RgbaLoader } from "../../lib/route/tileFetch";
 
@@ -488,6 +489,90 @@ async function main() {
     const b = avoidLow.safe?.stats.minElevation ?? Number.NaN;
     check("bias 0 では最短優先で低地を通る", a < 10, `最低 ${a.toFixed(1)}m`);
     check("bias を上げると低地を避ける", b > a, `最低 ${a.toFixed(1)}m → ${b.toFixed(1)}m`);
+  }
+
+  console.log("\n== 取得状況の診断 ==");
+  {
+    // 凡例に無い色（#123456）を 1 種類だけ混ぜたタイルを返し、
+    // 診断がそれを「凡例に無い色」として拾えるかを見る。
+    const UNKNOWN: [number, number, number] = [0x12, 0x34, 0x56];
+    const probe: TileProbe = async (url) => {
+      const m = url.match(/\/(\d+)\/(\d+)\/(\d+)\.png$/);
+      const zoom = m ? Number(m[1]) : -1;
+      if (url.includes("dem_png")) {
+        if (zoom !== 14) return { status: 404 };
+        const rgba = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
+        for (let i = 0; i < TILE_SIZE * TILE_SIZE; i += 1) {
+          const v = 2500; // 25.00m
+          rgba[i * 4] = (v >> 16) & 0xff;
+          rgba[i * 4 + 1] = (v >> 8) & 0xff;
+          rgba[i * 4 + 2] = v & 0xff;
+          rgba[i * 4 + 3] = 255;
+        }
+        return { status: 200, rgba };
+      }
+      if (url.includes("01_flood_l2_shinsuishin_data")) {
+        // z14 と z15 だけ配信されている想定。
+        if (zoom !== 14 && zoom !== 15) return { status: 404 };
+        const rgba = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
+        for (let i = 0; i < TILE_SIZE * TILE_SIZE; i += 1) {
+          const known = i % 3 !== 0;
+          const c = known ? FLOOD_RANK_COLOR : UNKNOWN;
+          rgba[i * 4] = c[0];
+          rgba[i * 4 + 1] = c[1];
+          rgba[i * 4 + 2] = c[2];
+          rgba[i * 4 + 3] = 255;
+        }
+        return { status: 200, rgba };
+      }
+      return { status: 404 };
+    };
+    const post = async () => ({ status: 200, text: '{"elements":[]}' });
+
+    const report = await diagnose(
+      { lat: LAT0, lon: LON0 },
+      {
+        zooms: [13, 14, 15],
+        datasets: [findDataset("flood_l2")!, findDataset("tsunami")!],
+        probe,
+        post,
+      },
+    );
+
+    check("道路データの疎通を判定できる", report.roads.every((r) => r.ok));
+    check(
+      "標高を読み取って報告する",
+      report.elevation.ok && Math.abs(report.elevation.value - 25) < 0.01,
+      report.elevation.detail,
+    );
+
+    const flood = report.hazards.find((h) => h.id === "flood_l2")!;
+    check(
+      "配信されているズームが分かる",
+      flood.zooms.filter((z) => z.ok).map((z) => z.zoom).join(",") === "14,15",
+      flood.zooms.map((z) => `z${z.zoom}:${z.ok ? "OK" : z.status}`).join(" "),
+    );
+    check(
+      "凡例に一致した色が分かる",
+      flood.colors.some((c) => c.rank?.max === 5),
+    );
+    check(
+      "凡例に無い色を拾える",
+      flood.unmatched.length === 1 && flood.unmatched[0].hex === "#123456",
+      flood.unmatched.map((c) => c.hex).join(","),
+    );
+
+    const tsunami = report.hazards.find((h) => h.id === "tsunami")!;
+    check(
+      "配信されていないデータセットが分かる",
+      tsunami.censusZoom === null && tsunami.zooms.every((z) => !z.ok),
+    );
+
+    const counted = countColors(
+      Uint8ClampedArray.from([255, 183, 183, 255, 0, 0, 0, 0]),
+      findDataset("flood_l2")!.ranks,
+    );
+    check("透明な画素は数えない", counted.opaque === 1 && counted.colors.length === 1);
   }
 
   console.log(

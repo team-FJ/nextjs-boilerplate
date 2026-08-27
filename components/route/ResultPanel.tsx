@@ -1,7 +1,7 @@
 "use client";
 
 import ElevationProfile from "./ElevationProfile";
-import { HAZARD_MAPPED, HAZARD_ZONE } from "@/lib/route/hazard";
+import { HAZARD_MAPPED } from "@/lib/route/hazard";
 import type { RoutePoint, RouteResult, SearchResult } from "@/lib/route/search";
 import type { RouteSettings } from "@/lib/route/settings";
 import { OSM_ATTRIBUTION } from "@/lib/route/tiles";
@@ -35,7 +35,8 @@ function formatRouteDepth(r: RouteResult): string {
   const s = r.stats;
   if (s.depthUnknownM > 0 && s.maxDepth === 0) return "区域内（深さ不明）";
   if (s.inundatedM === 0) return "浸水想定なし";
-  if (!Number.isFinite(s.maxDepth)) return "20m 以上";
+  // 最上位の段階には上限が無い（区切りはデータセットごとに違う）。
+  if (!Number.isFinite(s.maxDepth)) return "最上位の段階";
   return `${s.maxDepth}m 未満`;
 }
 
@@ -257,9 +258,7 @@ function Comparison({
 }) {
   const extra = safe.stats.distanceM - shortest.stats.distanceM;
   const extraSec = safe.stats.durationSec - shortest.stats.durationSec;
-  const shortestMapped =
-    shortest.points.some((p) => p.hazard & HAZARD_MAPPED) ||
-    shortest.points.some((p) => p.hazard & HAZARD_ZONE);
+  const shortestMapped = shortest.points.some((p) => p.hazard & HAZARD_MAPPED);
   return (
     <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
       <h2 className="mb-1 text-sm font-bold tracking-wide text-slate-500 dark:text-slate-400">

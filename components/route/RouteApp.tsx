@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import ControlPanel, { type PickTarget } from "./ControlPanel";
 import MapView from "./MapView";
@@ -195,6 +196,12 @@ export default function RouteApp() {
           <p className="text-xs text-slate-500 dark:text-slate-400">
             ハザードマップの浸水想定を通らない経路を探します
           </p>
+          <Link
+            href="/route/check"
+            className="mt-1 inline-block text-xs text-teal-700 underline dark:text-teal-400"
+          >
+            データの取得状況を診断する
+          </Link>
         </header>
 
         {error && (

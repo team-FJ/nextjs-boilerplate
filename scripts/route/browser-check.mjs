@@ -213,6 +213,26 @@ async function waitForServer(timeoutMs = 90000) {
   return false;
 }
 
+/**
+ * 数値入力に値を入れて、それが残ることまで確かめる。
+ *
+ * ハイドレーションが終わる前に入力すると、React が初期状態で描き直したときに
+ * 値が戻ってしまう。入れ直しながら、2 度読んで同じ値になるまで待つ。
+ */
+async function setNumber(page, label, value) {
+  const input = page.getByLabel(label);
+  const want = String(value);
+  for (let i = 0; i < 20; i += 1) {
+    await input.fill(want);
+    if ((await input.inputValue()) === want) {
+      await page.waitForTimeout(60);
+      if ((await input.inputValue()) === want) return;
+    }
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`${label} を ${want} にできませんでした`);
+}
+
 let failures = 0;
 function check(label, ok, detail = "") {
   if (!ok) failures += 1;
@@ -405,6 +425,45 @@ async function main() {
     await page.waitForTimeout(1000);
     const scrollTop = await page.locator("aside").evaluate((el) => el.scrollTop);
     check("結果が見える位置まで自動で送られる", scrollTop > 100, `scrollTop=${scrollTop}`);
+
+    // --- 診断ページ ------------------------------------------------------
+    await page.goto(`${BASE}/route/check`, { waitUntil: "domcontentloaded" });
+    // 合成した浸水想定区域の中を指定する（既定の地点は合成の街の外にある）。
+    await setNumber(page, "緯度", LAT0 + STEP_LAT);
+    await setNumber(page, "経度", LON0 + STEP_LON * 10);
+    await page.getByRole("button", { name: "診断する" }).click();
+    await page.waitForSelector('[data-testid="diag-summary"]', { timeout: 60000 });
+
+    const summary = await page.getByTestId("diag-summary").innerText();
+    check(
+      "疎通の判定が出る",
+      summary.includes("道路データにつながります") &&
+        summary.includes("標高タイルを読めます"),
+      summary.replace(/\n/g, " | "),
+    );
+    check(
+      "凡例との一致を判定できる",
+      summary.includes("すべて凡例と一致しました"),
+      summary.replace(/\n/g, " | "),
+    );
+
+    const floodDiag = await page.getByTestId("diag-flood_l2").innerText();
+    check(
+      "配信されているズームを特定できる",
+      floodDiag.includes("z14 のタイルで色を数えました"),
+      floodDiag.split("\n").slice(0, 3).join(" | "),
+    );
+    check(
+      "凡例の段階が表示される",
+      floodDiag.includes("3〜5m"),
+      floodDiag.split("\n").slice(-3).join(" | "),
+    );
+
+    const tsunamiDiag = await page.getByTestId("diag-tsunami").innerText();
+    check(
+      "配信が無いデータセットを見分けられる",
+      tsunamiDiag.includes("タイルを取得できませんでした"),
+    );
 
     check("JavaScript エラーが出ていない", errors.length === 0, errors[0] ?? "");
 

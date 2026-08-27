@@ -199,8 +199,8 @@ A\* が最適解を返します（`lib/route/astar.ts`）。上り坂には別�
 外部サービスに依存するので、合成した地形・街・ハザードマップを流し込んで確かめています。
 
 ```bash
-npm run route-selftest                  # 色あわせ・標高デコード・グラフ・探索の検証（46 項目）
-npm run build && npm run route-browser  # 実ブラウザでの通し検証（16 項目）
+npm run route-selftest                  # 色あわせ・標高デコード・グラフ・探索・診断の検証（53 項目）
+npm run build && npm run route-browser  # 実ブラウザでの通し検証（21 項目）
 ```
 
 `route-selftest` は「中央の南寄りだけが低地で、そこが浸水想定区域（3〜5m）」という地形を作り、
@@ -211,7 +211,25 @@ npm run build && npm run route-browser  # 実ブラウザでの通し検証（16
 
 を確かめます。`route-browser` は Overpass・ハザードマップ・標高タイルの応答を Playwright で
 差し替え（PNG はその場で生成します）、**画面に出た最大想定浸水深と最低標高が本当に条件を満たすか**を
-ブラウザ上で読み取って検証します。
+ブラウザ上で読み取って検証します。診断ページについても、配信ズームの判定と
+凡例との突き合わせが画面に出るところまで確かめています。
+
+### つながるか確かめる（/route/check）
+
+このアプリは外部サービスへブラウザから直接つなぐため、
+ネットワークの事情で動かないことがあります。また、次の 2 つは実データを見ないと確定できません。
+
+- ハザードマップのタイルが**どのズームで配信されているか**
+- タイルに実際に含まれる色が**凡例と一致しているか**（一致しない色は「深さ不明」に落ちます）
+
+`/route/check` を開いて地点を指定し「診断する」を押すと、その端末から実際に取りにいって、
+疎通・配信ズーム・タイルに含まれる色の一覧（凡例に無い色は赤で表示）を出します。
+結果はテキストでコピーできます。
+
+凡例に無い色が出たら、その色と段階の対応を `lib/route/hazard.ts` の凡例に足せば、
+その段階も深さとして判定できるようになります。
+とくに津波の凡例は段階が 1 つ多く、最上位の色をこのアプリはまだ持っていません
+（一致しない色は「区域内・深さ不明」として安全側に倒すので、危険側には振れません）。
 
 ### 注意
 
@@ -363,6 +381,9 @@ components/route/MapView.tsx    Leaflet の地図（背景・ハザード重ね�
 components/route/ControlPanel.tsx 条件の入力（標高・移動手段・表示）
 components/route/ResultPanel.tsx  結果の表示（距離・標高・最短ルートとの比較）
 components/route/ElevationProfile.tsx 標高の断面図と想定浸水深の帯（SVG）
+app/route/check/page.tsx        データ取得の診断ページ
+components/route/DiagnosePanel.tsx 診断の画面
+lib/route/diagnose.ts           疎通・配信ズーム・タイルの色の調査
 lib/route/hazard.ts             ハザードマップの色から想定浸水深を読み取る
 lib/route/dem.ts                国土地理院 標高タイルの読み取りと補間
 lib/route/tileFetch.ts          ラスタタイルの取得（標高・ハザード共通）

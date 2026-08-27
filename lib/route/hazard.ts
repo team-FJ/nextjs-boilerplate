@@ -381,6 +381,8 @@ export function formatDepth(depth: number, flags: number): string {
   if (!(flags & HAZARD_MAPPED)) return "ハザードマップ未整備";
   if (Number.isNaN(depth)) return "区域内（深さ不明）";
   if (depth === 0) return "浸水想定なし";
-  if (!Number.isFinite(depth)) return "20m 以上";
+  // 最上位の段階は上限を持たない。データセットごとに区切りが違うので、
+  // 「20m 以上」のように決め打ちの数字は書かない。
+  if (!Number.isFinite(depth)) return "区域図の最上位の段階";
   return `${depth}m 未満`;
 }
