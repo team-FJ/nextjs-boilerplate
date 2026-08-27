@@ -1,7 +1,8 @@
 /**
- * 高台ルート検索の実ブラウザ検証。
+ * 避難ルート検索の実ブラウザ検証。
  *
  *   npm run build && npm run route-browser
+ *   npm run build:static && npm run route-browser-static   # 公開時と同じ静的配信で
  *
  * オフラインの自己テスト（npm run route-selftest）は探索ロジックしか見ていない。
  * 実際には「標高 PNG を canvas で読む」「Overpass の応答を組み立てる」「React の配線」
@@ -199,11 +200,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let PORT = process.env.PORT ?? "";
 let BASE = "";
 
+/**
+ * --static を付けると、next start ではなく out/ をサブディレクトリ配信して検証する。
+ * GitHub Pages は basePath 付きで配るので、そこで初めて壊れる不具合がある。
+ */
+const STATIC = process.argv.includes("--static");
+const BASE_PATH = process.env.PAGES_BASE_PATH ?? "/nextjs-boilerplate";
+
 async function waitForServer(timeoutMs = 90000) {
   const until = Date.now() + timeoutMs;
   while (Date.now() < until) {
     try {
-      const res = await fetch(BASE, { signal: AbortSignal.timeout(2000) });
+      const res = await fetch(`${BASE}/`, { signal: AbortSignal.timeout(2000) });
       if (res.ok) return true;
     } catch {
       /* まだ立ち上がっていない */
@@ -243,14 +251,31 @@ const CORS = { "access-control-allow-origin": "*" };
 
 async function main() {
   PORT = PORT || (await freePort());
-  BASE = `http://127.0.0.1:${PORT}`;
+  BASE = STATIC ? `http://127.0.0.1:${PORT}${BASE_PATH}` : `http://127.0.0.1:${PORT}`;
+  console.log(STATIC ? `静的配信を検証します（${BASE}）` : `next start を検証します（${BASE}）`);
 
   // next start は子プロセスを持つので、プロセスグループごと終了させる。
-  const server = spawn("npx", ["next", "start", "-p", PORT], {
-    stdio: ["ignore", "pipe", "pipe"],
-    env: process.env,
-    detached: true,
-  });
+  const server = spawn(
+    ...(STATIC
+      ? [
+          "node",
+          [
+            "scripts/serve-static.mjs",
+            "--dir",
+            "out",
+            "--base",
+            BASE_PATH,
+            "--port",
+            PORT,
+          ],
+        ]
+      : ["npx", ["next", "start", "-p", PORT]]),
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+      detached: true,
+    },
+  );
   server.stdout.on("data", () => {});
   server.stderr.on("data", (d) => process.stderr.write(d));
 

@@ -15,7 +15,9 @@
     "breakout-netsim": "esbuild scripts/breakout/netsim.ts --bundle --platform=node --format=esm --outfile=.breakout-netsim.mjs && node .breakout-netsim.mjs",
     "spin-rally-standalone": "node scripts/standalone/spin-rally.mjs",
     "route-selftest": "esbuild scripts/route/selftest.ts --bundle --platform=node --format=esm --outfile=.route-selftest.mjs && node .route-selftest.mjs",
-    "route-browser": "node scripts/route/browser-check.mjs"
+    "route-browser": "node scripts/route/browser-check.mjs",
+    "serve:static": "node scripts/serve-static.mjs --dir out --base ${PAGES_BASE_PATH:-}",
+    "route-browser-static": "node scripts/route/browser-check.mjs --static"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

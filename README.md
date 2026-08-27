@@ -143,6 +143,28 @@ P2P では**進行役の端末が対戦中ずっと画面を開いている必�
 津波の区域図は沿岸部にしかないなど、ハザードマップが無い場所を埋めるのに使えます。
 「標高 10m 未満は通らない」を併用すると、区域図が無い区間も足切りできます。
 
+### 動かす
+
+手元で試す場合:
+
+```bash
+npm install
+npm run dev
+# → http://localhost:3000/route
+```
+
+公開時と同じ「サブディレクトリ配信の静的ファイル」で確かめる場合:
+
+```bash
+PAGES_BASE_PATH=/nextjs-boilerplate npm run build:static
+PAGES_BASE_PATH=/nextjs-boilerplate npm run serve:static
+# → http://127.0.0.1:4321/nextjs-boilerplate/route/
+```
+
+GitHub Pages へ公開すると `https://<owner>.github.io/<リポジトリ名>/route/` で開けます
+（配置の手順は「GitHub Pages へ公開する」を参照）。サーバーは要りません。
+最初に開いたときは `/route/check` で疎通を確かめておくと確実です。
+
 ### 使い方
 
 1. 出発地と目的地を決める（地図をタップ / 住所・地名で検索 / 現在地）
@@ -199,8 +221,9 @@ A\* が最適解を返します（`lib/route/astar.ts`）。上り坂には別�
 外部サービスに依存するので、合成した地形・街・ハザードマップを流し込んで確かめています。
 
 ```bash
-npm run route-selftest                  # 色あわせ・標高デコード・グラフ・探索・診断の検証（53 項目）
-npm run build && npm run route-browser  # 実ブラウザでの通し検証（21 項目）
+npm run route-selftest                         # 色あわせ・標高デコード・グラフ・探索・診断の検証（53 項目）
+npm run build && npm run route-browser         # 実ブラウザでの通し検証（21 項目）
+npm run build:static && npm run route-browser-static  # 公開時と同じ静的配信で同じ 21 項目
 ```
 
 `route-selftest` は「中央の南寄りだけが低地で、そこが浸水想定区域（3〜5m）」という地形を作り、
@@ -213,6 +236,10 @@ npm run build && npm run route-browser  # 実ブラウザでの通し検証（21
 差し替え（PNG はその場で生成します）、**画面に出た最大想定浸水深と最低標高が本当に条件を満たすか**を
 ブラウザ上で読み取って検証します。診断ページについても、配信ズームの判定と
 凡例との突き合わせが画面に出るところまで確かめています。
+
+`route-browser-static` は同じ検証を、`next start` ではなく**書き出した静的ファイルを
+サブディレクトリ配信した状態**に対して行います。GitHub Pages は basePath 付きで配るため、
+手元では動くのに公開したら壊れる、という型の不具合はここでしか出ません。
 
 ### つながるか確かめる（/route/check）
 
@@ -397,6 +424,7 @@ lib/route/settings.ts           条件の保存・災害別の目安
 lib/route/gpx.ts                経路の GPX 書き出し
 scripts/route/selftest.ts       合成地形・合成ハザードマップによる検証
 scripts/route/browser-check.mjs 実ブラウザでの通し検証（外部 API は差し替え）
+scripts/serve-static.mjs        書き出した静的ファイルを公開時と同じ形で配る
 
 proxy.ts                        Basic 認証による限定公開（SITE_PASSWORD 設定時のみ有効）
 ```
